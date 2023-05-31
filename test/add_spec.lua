@@ -1,0 +1,5 @@
+describe("a suite", function()
+    it("a test", function ()
+        assert.is_nil(nil)
+    end)
+end)
