@@ -493,3 +493,389 @@ __map__
 4848000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4848000000000000000000004b4b4b4b4b474747474b4b4b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046
 48480000000000000000004b4b00000000004646000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004800000000000000464646
+__lua__
+--src/char.lua
+function init_char()
+    local char={
+        x=72,
+        y=192,
+        dx=0,
+        dy=0,
+        runspeed=1,
+        spr=004,
+        spri=1,
+        state='stand',
+        flip=false,
+        states={
+            ['stand']={
+                ['walk']=1,
+            },
+            ['walk']={
+                ['stand']=1,
+            }
+        },
+        animations={
+            ['stand']={004},
+            ['walk']={004,004,020,020},
+        },
+        change_state=change_state,
+        get_input=get_input,
+        update=update_char,
+        menu=function(self)
+            -- bring up pause / item menu
+            game_state = 'menu'
+        end,
+        action=function(self)
+            -- talk / read
+            game_state = 'menu'
+        end,
+
+        draw=function(self)
+            spr(self.spr,self.x,self.y,1,1,self.flip)
+        end
+    }
+    return char
+end
+
+function change_state(_char, next_state)
+    if (_char.states[_char.state][next_state] ~= nil) then
+        _char.state = next_state
+        _char.spri = 1
+    end
+end
+
+function get_input(_char)
+    if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
+        _char.dx = -char.runspeed
+        _char:change_state('walk')
+        _char.flip = true
+    elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) ) then
+        _char.dx = char.runspeed
+        _char:change_state('walk')
+        _char.flip = false
+    elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
+        _char.dy = -char.runspeed
+        _char:change_state('walk')
+    elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
+        _char.dy = char.runspeed
+        _char:change_state('walk')
+    end
+
+    if (btn(0) == btn(1)) then
+        _char.dx = 0 
+    end
+
+    if (btn(2) == btn(3)) then
+        _char.dy = 0 
+    end 
+
+    if (_char.dx == 0 and _char.dy == 0) then
+        _char:change_state('stand')
+    end
+
+    if (btnp(5)) then
+        _char:menu()
+    end
+
+    if (btnp(4)) then
+        _char:action()
+    end
+end
+
+function update_char(_char)
+    if (_char.pause) then
+        return
+    end
+
+    _char:get_input()
+
+    _char.y += _char.dy
+    _char.x += _char.dx
+
+    -- animation
+    if (t % 4 == 0) then
+        _char.spri = ((_char.spri + 1) % #_char.animations[_char.state]) + 1
+    end
+
+    _char.spr = _char.animations[_char.state][_char.spri]
+end
+-->8
+--src/inventory.lua
+inventory = {
+    -- 4x8 grid
+    items = {
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+    }
+}
+-->8
+--src/items.lua
+items = {}
+
+items.crab = {
+    spr = 006,
+    name = 'crab'
+}
+
+items.log = {
+    spr = 019,
+    name = 'log'
+}
+
+inventory.items[2][3] = items.log
+inventory.items[4][5] = items.crab
+inventory.items[4][6] = items.crab
+
+-->8
+--src/lib/dust.lua
+function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
+    add(dust, {
+    fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=8,grav=_g,draw=function(self)
+    pal()palt()circfill(self.x * 8,self.y * 8,self.rad,self.col)
+    end,update=function(self)
+    self.x+=self.dx self.y+=self.dy
+    self.dy+=self.grav self.rad*=0.9 self.life-=1
+    if type(self.fade)=="table"then self.col=self.fade[flr(#self.fade*(self.life/self.orig_life))+1]else self.col=self.fade end
+    if self.life<0then del(dust,self)end end})
+end
+-->8
+--src/lib/group.lua
+function new_group(bp)
+    return {
+        _={},
+        bp=bp,
+        
+        new=function(self,p)
+            for k,v in pairs(bp) do
+                if v!=nil then
+                    p[k]=v
+                end
+            end
+            p.alive=true
+            add(self._,p)
+        end,
+           
+        update=function(self)
+            for i,v in ipairs(self._) do
+                v:update()
+                if v.alive==false then
+                del(self._,self._[i])
+                end
+            end
+        end,
+
+        turn=function(self)
+            for v in all(self._) do
+                v:turn()
+            end
+        end,
+        
+        draw=function(self)
+            for v in all(self._) do
+                spr(v.s,v.x*8,v.y*8,1,1,v.flip)
+            end
+        end
+    }
+end
+-->8
+--src/lib/util.lua
+function rndi(min,max)
+    return flr(rnd(max - min)) + min
+end
+
+function coord_match(a,b)
+    return a[1] == b[1] and a[2] == b[2]
+end
+
+function in_bounds(a,b)
+    return a > 0 and a < MAP_SIZE + 1 and b > 0 and b < MAP_SIZE + 1
+end
+
+function round(x)
+    if ((x - flr(x)) >= 0.5) then
+        return ceil(x)
+    else
+        return flr(x)
+    end
+end
+-->8
+--src/log.lua
+_log={}
+log_l=4
+for i=1,log_l do
+    add(_log,'')
+end
+
+function log(str)
+    add(_log,str)
+end
+   
+function debug()
+    vars = {
+        't='..t
+    }
+
+    -- draw the log
+    for i=count(_log)-log_l+1,count(_log) do
+        add(vars,'> '.._log[i])
+    end
+
+    for i,v in ipairs(vars) do
+        print(v,(cam.x*8)+8,(cam.y*8)+(i*8),15)
+    end
+end
+-->8
+--src/main.lua
+-- sword 
+
+function _init()
+    -- global vars
+    t=0
+    cam = {
+        x = 0,
+        y = 0
+    }
+    msg=''
+    -- states: move, menu, talk, etc.
+    -- game states change control delegates
+
+    game_state = 'move'
+
+    -- thanks doc_robs!
+    dust={}
+
+    char=init_char()
+end
+
+function _update()
+    pal()
+    t=(t+1)%128
+
+    if (game_state == 'move') then
+        char:update()
+    end
+
+    if (game_state == 'menu') then
+        menu:update()
+    end
+
+    cam.x = char.x - 64
+    cam.y = char.y - 64
+
+    for d in all(dust) do
+        d:update()
+    end
+end
+
+function _draw()
+    cls()
+
+    map(0,0,0,0,128,64)
+
+    camera(cam.x, cam.y)
+    char:draw()
+
+    if (game_state == 'menu') then
+        menu:draw()
+    end
+
+    for d in all(dust) do
+        d:draw()
+    end
+
+    -- debug()
+end
+-->8
+--src/menu.lua
+menu = {
+    cursor = {
+        x=1,
+        y=1
+    },
+    selected_item = nil,
+
+    update = function(self)
+
+        if (btnp(0)) then
+            self.cursor.x = max(self.cursor.x - 1, 1)
+        end
+
+        if (btnp(1)) then
+            self.cursor.x = min(self.cursor.x + 1, 4)
+        end
+
+        if (btnp(2)) then
+            self.cursor.y = max(self.cursor.y - 1, 1)
+        end
+
+        if (btnp(3)) then
+            self.cursor.y = min(self.cursor.y + 1, 9)
+        end 
+
+
+        if (btnp(4)) then
+            game_state = 'move'
+        end
+
+        self.selected_item = inventory.items[self.cursor.y][self.cursor.x]
+    end,
+
+    draw = function(self)
+        -- status
+        draw_menu_rect(0,0,63,63,7)
+        print('- status - ', cam.x + 12, cam.y + 2, 7)
+
+
+        -- inventory
+        draw_menu_rect(96, 32, 127, 111, 7)
+
+        print('-items-', cam.x + 98, cam.y + 34, 7)
+
+
+        for i=1,9 do
+            for j=1,4 do
+                local item = inventory.items[i][j]
+                if (item ~= nil) then
+                    spr(item.spr, cam.x + 96 + ((j-1) * 8), cam.y + 40 + ((i-1) * 8))
+                end
+            end
+        end
+
+        -- cursor
+        draw_menu_rect(
+            ((self.cursor.x - 1) * 8) + 96,
+            ((self.cursor.y - 1) * 8) + 40,
+            ((self.cursor.x) * 8) + 96 - 1,
+            ((self.cursor.y) * 8) + 40 - 1,
+            8,
+            true
+        )
+
+
+        -- bottom bar
+        draw_menu_rect(16, 120, 111, 127, 7)
+
+        if (self.selected_item ~= nil) then
+            print(self.selected_item.name, cam.x + 48, cam.y + 122, 7)
+        end
+
+    end
+}
+
+function draw_menu_rect(x0, y0, x1, y1, color, transparent)
+    if (not(transparent)) then
+        rectfill(cam.x + x0, cam.y + y0, cam.x + x1, cam.y + y1, 0)
+    end
+    line(cam.x + x0 + 1, cam.y + y0, cam.x + x1 - 1, cam.y + y0, color)
+    line(cam.x + x0, cam.y + y0 + 1, cam.x + x0, cam.y + y1 - 1, color)
+    line(cam.x + x0 + 1, cam.y + y1, cam.x + x1 - 1, cam.y + y1, color)
+    line(cam.x + x1, cam.y + y0 + 1, cam.x + x1, cam.y + y1 - 1, color)
+end
+-->8
