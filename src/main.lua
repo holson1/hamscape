@@ -16,6 +16,10 @@ function _init()
     -- thanks doc_robs!
     dust={}
 
+    inventory.items[2][3] = items.log
+    inventory.items[1][2] = items.crab
+    inventory.items[3][6] = items.crab
+
     char=init_char()
 end
 
@@ -31,8 +35,8 @@ function _update()
         menu:update()
     end
 
-    cam.x = char.x - 64
-    cam.y = char.y - 64
+    cam.x = max(char.x - 64, 0)
+    cam.y = max(char.y - 64, 0)
 
     for d in all(dust) do
         d:update()
@@ -41,6 +45,7 @@ end
 
 function _draw()
     cls()
+
 
     map(0,0,0,0,128,64)
 
@@ -55,5 +60,5 @@ function _draw()
         d:draw()
     end
 
-    -- debug()
+    debug()
 end

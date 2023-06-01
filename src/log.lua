@@ -10,7 +10,8 @@ end
    
 function debug()
     vars = {
-        't='..t
+        't='..t,
+        "draw_x="..menu.cursor.draw_x
     }
 
     -- draw the log
@@ -19,6 +20,6 @@ function debug()
     end
 
     for i,v in ipairs(vars) do
-        print(v,(cam.x*8)+8,(cam.y*8)+(i*8),15)
+        print(v,(cam.x)+8,(cam.y)+(i*8),15)
     end
 end

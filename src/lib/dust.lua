@@ -1,7 +1,7 @@
 function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
     add(dust, {
     fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=8,grav=_g,draw=function(self)
-    pal()palt()circfill(self.x * 8,self.y * 8,self.rad,self.col)
+    pal()palt()circfill(self.x,self.y,self.rad,self.col)
     end,update=function(self)
     self.x+=self.dx self.y+=self.dy
     self.dy+=self.grav self.rad*=0.9 self.life-=1
