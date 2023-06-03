@@ -5,13 +5,42 @@ menu = {
         draw_x=1,
         draw_y=1
     },
+    positions = {
+        inventory = {
+            left = 80,
+            top = 32,
+            padding = {
+                left = 3,
+                right = 3,
+                top = 9,
+                bottom = 3
+            },
+            grid = {
+                left = 0,
+                top = 0
+            }
+        },
+        bottom_bar = {
+            left = 16,
+            top = 119,
+            right = 111,
+            bottom = 127
+        }
+    },
+
     selected_item = nil,
 
+    init = function(self)
+        self.positions.inventory.grid.left = self.positions.inventory.left + self.positions.inventory.padding.left
+        self.positions.inventory.grid.top = self.positions.inventory.top + self.positions.inventory.padding.top
+    end,
+
     update = function(self)
+        self.cursor.draw_x = cam.x + ((self.cursor.x - 1) * 8) + self.positions.inventory.grid.left
+        self.cursor.draw_y = cam.y + ((self.cursor.y - 1) * 8) + self.positions.inventory.grid.top
 
-        self.cursor.draw_x = cam.x + ((self.cursor.x - 1) * 8) + 93
-        self.cursor.draw_y = cam.y + ((self.cursor.y - 1) * 8) + 40
 
+        -- todo: refactor into input fn
         if (btnp(0)) then
             self.cursor.x = max(self.cursor.x - 1, 1)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 1, 0, 6, 2, 0, 7)
@@ -19,7 +48,7 @@ menu = {
         end
 
         if (btnp(1)) then
-            self.cursor.x = min(self.cursor.x + 1, 4)
+            self.cursor.x = min(self.cursor.x + 1, inventory.cols)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -1, 0, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -0.5, 0, 4, 1, 0, 7)
         end
@@ -31,14 +60,21 @@ menu = {
         end
 
         if (btnp(3)) then
-            self.cursor.y = min(self.cursor.y + 1, 9)
+            self.cursor.y = min(self.cursor.y + 1, inventory.rows)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -1, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -0.5, 4, 1, 0, 7)
         end 
 
 
+        if (btnp(5)) then
+            -- drop item
+            if (self.selected_item) then
+                inventory.items[self.cursor.x][self.cursor.y] = nil
+            end
+        end
+
         if (btnp(4)) then
-            game_state = 'move'
+            new_game_state = 'move'
         end
 
         self.selected_item = inventory.items[self.cursor.x][self.cursor.y]
@@ -50,17 +86,25 @@ menu = {
         print('- status - ', cam.x + 12, cam.y + 2, 7)
 
 
+        local inv_right = self.positions.inventory.grid.left + (inventory.cols * 8) + self.positions.inventory.padding.right
+
         -- inventory
-        draw_menu_rect(90, 32, 127, 114, 7)
+        draw_menu_rect(
+            self.positions.inventory.left,
+            self.positions.inventory.top,
+            inv_right,
+            self.positions.inventory.grid.top + (inventory.rows * 8) + self.positions.inventory.padding.bottom,
+            7
+        )
 
-        print('-items-', cam.x + 98, cam.y + 34, 7)
+        --print('-items-', cam.x + self., cam.y + 34, 7)
+        print_centered('-items-', self.positions.inventory.left, inv_right, self.positions.inventory.top + 2, 7)
 
-
-        for i=1,9 do
-            for j=1,4 do
+        for i=1,inventory.rows do
+            for j=1,inventory.cols do
                 local item = inventory.items[j][i]
                 if (item ~= nil) then
-                    spr(item.spr, cam.x + 93 + ((j-1) * 8), cam.y + 40 + ((i-1) * 8))
+                    spr(item.spr, cam.x + self.positions.inventory.grid.left + ((j-1) * 8), cam.y + self.positions.inventory.grid.top + ((i-1) * 8))
                 end
             end
         end
@@ -77,10 +121,16 @@ menu = {
 
 
         -- bottom bar
-        draw_menu_rect(16, 120, 111, 127, 7)
+        draw_menu_rect(
+            self.positions.bottom_bar.left,
+            self.positions.bottom_bar.top,
+            self.positions.bottom_bar.right,
+            self.positions.bottom_bar.bottom,
+            7
+        )
 
         if (self.selected_item ~= nil) then
-            print(self.selected_item.name, cam.x + 48, cam.y + 122, 7)
+            print_centered(self.selected_item.name, self.positions.bottom_bar.left, self.positions.bottom_bar.right, self.positions.bottom_bar.top + 2, 7)
         end
 
     end

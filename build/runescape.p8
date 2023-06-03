@@ -1,301 +1,6 @@
 pico-8 cartridge // http://www.pico-8.com
-version 29
+version 41
 __lua__
---src/items.lua
-items = {}
-
-items.crab = {
-    spr = 006,
-    name = 'crab'
-}
-
-items.log = {
-    spr = 019,
-    name = 'log'
-}
-
-
--->8
---src/main.lua
--- sword 
-
-function _init()
-    -- global vars
-    t=0
-    cam = {
-        x = 0,
-        y = 0
-    }
-    msg=''
-    -- states: move, menu, talk, etc.
-    -- game states change control delegates
-
-    game_state = 'move'
-
-    -- thanks doc_robs!
-    dust={}
-
-    inventory.items[2][3] = items.log
-    inventory.items[1][2] = items.crab
-    inventory.items[3][6] = items.crab
-
-    char=init_char()
-end
-
-function _update()
-    pal()
-    t=(t+1)%128
-
-    if (game_state == 'move') then
-        char:update()
-    end
-
-    if (game_state == 'menu') then
-        menu:update()
-    end
-
-    cam.x = max(char.x - 64, 0)
-    cam.y = max(char.y - 64, 0)
-
-    for d in all(dust) do
-        d:update()
-    end
-end
-
-function _draw()
-    cls()
-
-
-    map(0,0,0,0,128,64)
-
-    camera(cam.x, cam.y)
-    char:draw()
-
-    if (game_state == 'menu') then
-        menu:draw()
-    end
-
-    for d in all(dust) do
-        d:draw()
-    end
-
-    debug()
-end
--->8
---src/inventory.lua
-inventory = {
-    -- 4x8 grid
-    items = {
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {}
-    }
-}
--->8
---src/menu.lua
-menu = {
-    cursor = {
-        x=1,
-        y=1,
-        draw_x=1,
-        draw_y=1
-    },
-    selected_item = nil,
-
-    update = function(self)
-
-        self.cursor.draw_x = cam.x + ((self.cursor.x - 1) * 8) + 93
-        self.cursor.draw_y = cam.y + ((self.cursor.y - 1) * 8) + 40
-
-        if (btnp(0)) then
-            self.cursor.x = max(self.cursor.x - 1, 1)
-            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 1, 0, 6, 2, 0, 7)
-            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 0.5, 0, 4, 1, 0, 7)
-        end
-
-        if (btnp(1)) then
-            self.cursor.x = min(self.cursor.x + 1, 4)
-            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -1, 0, 6, 2, 0, 7)
-            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -0.5, 0, 4, 1, 0, 7)
-        end
-
-        if (btnp(2)) then
-            self.cursor.y = max(self.cursor.y - 1, 1)
-            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 1, 6, 2, 0, 7)
-            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 0.5, 4, 1, 0, 7)
-        end
-
-        if (btnp(3)) then
-            self.cursor.y = min(self.cursor.y + 1, 9)
-            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -1, 6, 2, 0, 7)
-            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -0.5, 4, 1, 0, 7)
-        end 
-
-
-        if (btnp(4)) then
-            game_state = 'move'
-        end
-
-        self.selected_item = inventory.items[self.cursor.x][self.cursor.y]
-    end,
-
-    draw = function(self)
-        -- status
-        draw_menu_rect(0,0,63,63,7)
-        print('- status - ', cam.x + 12, cam.y + 2, 7)
-
-
-        -- inventory
-        draw_menu_rect(90, 32, 127, 114, 7)
-
-        print('-items-', cam.x + 98, cam.y + 34, 7)
-
-
-        for i=1,9 do
-            for j=1,4 do
-                local item = inventory.items[j][i]
-                if (item ~= nil) then
-                    spr(item.spr, cam.x + 93 + ((j-1) * 8), cam.y + 40 + ((i-1) * 8))
-                end
-            end
-        end
-
-        -- cursor
-        draw_menu_rect(
-            self.cursor.draw_x - cam.x,
-            self.cursor.draw_y - cam.y,
-            self.cursor.draw_x - cam.x + 8,
-            self.cursor.draw_y - cam.y + 8,
-            7,
-            true
-        )
-
-
-        -- bottom bar
-        draw_menu_rect(16, 120, 111, 127, 7)
-
-        if (self.selected_item ~= nil) then
-            print(self.selected_item.name, cam.x + 48, cam.y + 122, 7)
-        end
-
-    end
-}
-
-function draw_menu_rect(x0, y0, x1, y1, color, transparent)
-    if (not(transparent)) then
-        rectfill(cam.x + x0, cam.y + y0, cam.x + x1, cam.y + y1, 0)
-    end
-    line(cam.x + x0 + 1, cam.y + y0, cam.x + x1 - 1, cam.y + y0, color)
-    line(cam.x + x0, cam.y + y0 + 1, cam.x + x0, cam.y + y1 - 1, color)
-    line(cam.x + x0 + 1, cam.y + y1, cam.x + x1 - 1, cam.y + y1, color)
-    line(cam.x + x1, cam.y + y0 + 1, cam.x + x1, cam.y + y1 - 1, color)
-end
--->8
---src/lib/group.lua
-function new_group(bp)
-    return {
-        _={},
-        bp=bp,
-        
-        new=function(self,p)
-            for k,v in pairs(bp) do
-                if v!=nil then
-                    p[k]=v
-                end
-            end
-            p.alive=true
-            add(self._,p)
-        end,
-           
-        update=function(self)
-            for i,v in ipairs(self._) do
-                v:update()
-                if v.alive==false then
-                del(self._,self._[i])
-                end
-            end
-        end,
-
-        turn=function(self)
-            for v in all(self._) do
-                v:turn()
-            end
-        end,
-        
-        draw=function(self)
-            for v in all(self._) do
-                spr(v.s,v.x*8,v.y*8,1,1,v.flip)
-            end
-        end
-    }
-end
--->8
---src/lib/dust.lua
-function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
-    add(dust, {
-    fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=8,grav=_g,draw=function(self)
-    pal()palt()circfill(self.x,self.y,self.rad,self.col)
-    end,update=function(self)
-    self.x+=self.dx self.y+=self.dy
-    self.dy+=self.grav self.rad*=0.9 self.life-=1
-    if type(self.fade)=="table"then self.col=self.fade[flr(#self.fade*(self.life/self.orig_life))+1]else self.col=self.fade end
-    if self.life<0then del(dust,self)end end})
-end
--->8
---src/lib/util.lua
-function rndi(min,max)
-    return flr(rnd(max - min)) + min
-end
-
-function coord_match(a,b)
-    return a[1] == b[1] and a[2] == b[2]
-end
-
-function in_bounds(a,b)
-    return a > 0 and a < MAP_SIZE + 1 and b > 0 and b < MAP_SIZE + 1
-end
-
-function round(x)
-    if ((x - flr(x)) >= 0.5) then
-        return ceil(x)
-    else
-        return flr(x)
-    end
-end
--->8
---src/log.lua
-_log={}
-log_l=4
-for i=1,log_l do
-    add(_log,'')
-end
-
-function log(str)
-    add(_log,str)
-end
-   
-function debug()
-    vars = {
-        't='..t,
-        "draw_x="..menu.cursor.draw_x
-    }
-
-    -- draw the log
-    for i=count(_log)-log_l+1,count(_log) do
-        add(vars,'> '.._log[i])
-    end
-
-    for i,v in ipairs(vars) do
-        print(v,(cam.x)+8,(cam.y)+(i*8),15)
-    end
-end
--->8
 --src/char.lua
 function init_char()
     local char={
@@ -325,11 +30,11 @@ function init_char()
         update=update_char,
         menu=function(self)
             -- bring up pause / item menu
-            game_state = 'menu'
+            new_game_state = 'menu'
         end,
         action=function(self)
             -- talk / read
-            game_state = 'menu'
+            new_game_state = 'menu'
         end,
 
         draw=function(self)
@@ -400,6 +105,365 @@ function update_char(_char)
     end
 
     _char.spr = _char.animations[_char.state][_char.spri]
+end
+-->8
+--src/inventory.lua
+inventory = {
+    rows=5,
+    cols=5,
+    items = {
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+    }
+}
+-->8
+--src/items.lua
+items = {}
+
+items.crab = {
+    spr = 006,
+    name = 'crab'
+}
+
+items.log = {
+    spr = 019,
+    name = 'log'
+}
+
+
+-->8
+--src/lib/dust.lua
+function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
+    add(dust, {
+    fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=8,grav=_g,draw=function(self)
+    circfill(self.x,self.y,self.rad,self.col)
+    end,update=function(self)
+    self.x+=self.dx self.y+=self.dy
+    self.dy+=self.grav self.rad*=0.9 self.life-=1
+    if type(self.fade)=="table"then self.col=self.fade[flr(#self.fade*(self.life/self.orig_life))+1]else self.col=self.fade end
+    if self.life<0then del(dust,self)end end})
+end
+-->8
+--src/lib/group.lua
+function new_group(bp)
+    return {
+        _={},
+        bp=bp,
+        
+        new=function(self,p)
+            for k,v in pairs(bp) do
+                if v!=nil then
+                    p[k]=v
+                end
+            end
+            p.alive=true
+            add(self._,p)
+        end,
+           
+        update=function(self)
+            for i,v in ipairs(self._) do
+                v:update()
+                if v.alive==false then
+                del(self._,self._[i])
+                end
+            end
+        end,
+
+        turn=function(self)
+            for v in all(self._) do
+                v:turn()
+            end
+        end,
+        
+        draw=function(self)
+            for v in all(self._) do
+                spr(v.s,v.x*8,v.y*8,1,1,v.flip)
+            end
+        end
+    }
+end
+-->8
+--src/lib/util.lua
+function rndi(min,max)
+    return flr(rnd(max - min)) + min
+end
+
+function coord_match(a,b)
+    return a[1] == b[1] and a[2] == b[2]
+end
+
+function in_bounds(a,b)
+    return a > 0 and a < MAP_SIZE + 1 and b > 0 and b < MAP_SIZE + 1
+end
+
+function round(x)
+    if ((x - flr(x)) >= 0.5) then
+        return ceil(x)
+    else
+        return flr(x)
+    end
+end
+
+function print_centered(s, x1, x2, y, col)
+    local str_w = #s * 2
+    local center_point = ceil((x2 - x1) / 2) + x1
+    print(s, cam.x + (center_point - str_w), cam.y + y, col)
+end
+-->8
+--src/log.lua
+_log={}
+log_l=4
+for i=1,log_l do
+    add(_log,'')
+end
+
+function log(str)
+    add(_log,str)
+end
+   
+function debug()
+    vars = {
+        't='..t,
+        "draw_x="..menu.cursor.draw_x
+    }
+
+    -- draw the log
+    for i=count(_log)-log_l+1,count(_log) do
+        add(vars,'> '.._log[i])
+    end
+
+    for i,v in ipairs(vars) do
+        print(v,(cam.x)+8,(cam.y)+(i*8),15)
+    end
+end
+-->8
+--src/main.lua
+-- sword 
+
+function _init()
+    -- global vars
+    t=0
+    cam = {
+        x = 0,
+        y = 0
+    }
+    msg=''
+    -- states: move, menu, talk, etc.
+    -- game states change control delegates
+
+    game_state = 'move'
+    new_game_state = nil
+
+    -- thanks doc_robs!
+    dust={}
+
+    inventory.items[2][3] = items.log
+    inventory.items[1][2] = items.crab
+    inventory.items[3][6] = items.crab
+
+    menu:init()
+
+    char=init_char()
+end
+
+function _update()
+    --pal()
+    t=(t+1)%128
+
+    if (game_state == 'move') then
+        char:update()
+    end
+
+    if (game_state == 'menu') then
+        menu:update()
+    end
+
+    cam.x = max(char.x - 64, 0)
+    cam.y = max(char.y - 64, 0)
+
+    for d in all(dust) do
+        d:update()
+    end
+
+    if (new_game_state) then
+        game_state = new_game_state
+        new_game_state = nil
+    end
+end
+
+function _draw()
+    cls()
+
+    map(0,0,0,0,128,64)
+
+    camera(cam.x, cam.y)
+    char:draw()
+
+    if (game_state == 'menu') then
+        menu:draw()
+    end
+
+    for d in all(dust) do
+        d:draw()
+    end
+
+    --debug()
+end
+-->8
+--src/menu.lua
+menu = {
+    cursor = {
+        x=1,
+        y=1,
+        draw_x=1,
+        draw_y=1
+    },
+    positions = {
+        inventory = {
+            left = 80,
+            top = 32,
+            padding = {
+                left = 3,
+                right = 3,
+                top = 9,
+                bottom = 3
+            },
+            grid = {
+                left = 0,
+                top = 0
+            }
+        },
+        bottom_bar = {
+            left = 16,
+            top = 119,
+            right = 111,
+            bottom = 127
+        }
+    },
+
+    selected_item = nil,
+
+    init = function(self)
+        self.positions.inventory.grid.left = self.positions.inventory.left + self.positions.inventory.padding.left
+        self.positions.inventory.grid.top = self.positions.inventory.top + self.positions.inventory.padding.top
+    end,
+
+    update = function(self)
+        self.cursor.draw_x = cam.x + ((self.cursor.x - 1) * 8) + self.positions.inventory.grid.left
+        self.cursor.draw_y = cam.y + ((self.cursor.y - 1) * 8) + self.positions.inventory.grid.top
+
+
+        -- todo: refactor into input fn
+        if (btnp(0)) then
+            self.cursor.x = max(self.cursor.x - 1, 1)
+            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 1, 0, 6, 2, 0, 7)
+            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 0.5, 0, 4, 1, 0, 7)
+        end
+
+        if (btnp(1)) then
+            self.cursor.x = min(self.cursor.x + 1, inventory.cols)
+            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -1, 0, 6, 2, 0, 7)
+            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -0.5, 0, 4, 1, 0, 7)
+        end
+
+        if (btnp(2)) then
+            self.cursor.y = max(self.cursor.y - 1, 1)
+            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 1, 6, 2, 0, 7)
+            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 0.5, 4, 1, 0, 7)
+        end
+
+        if (btnp(3)) then
+            self.cursor.y = min(self.cursor.y + 1, inventory.rows)
+            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -1, 6, 2, 0, 7)
+            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -0.5, 4, 1, 0, 7)
+        end 
+
+
+        if (btnp(5)) then
+            -- drop item
+            if (self.selected_item) then
+                inventory.items[self.cursor.x][self.cursor.y] = nil
+            end
+        end
+
+        if (btnp(4)) then
+            new_game_state = 'move'
+        end
+
+        self.selected_item = inventory.items[self.cursor.x][self.cursor.y]
+    end,
+
+    draw = function(self)
+        -- status
+        draw_menu_rect(0,0,63,63,7)
+        print('- status - ', cam.x + 12, cam.y + 2, 7)
+
+
+        local inv_right = self.positions.inventory.grid.left + (inventory.cols * 8) + self.positions.inventory.padding.right
+
+        -- inventory
+        draw_menu_rect(
+            self.positions.inventory.left,
+            self.positions.inventory.top,
+            inv_right,
+            self.positions.inventory.grid.top + (inventory.rows * 8) + self.positions.inventory.padding.bottom,
+            7
+        )
+
+        --print('-items-', cam.x + self., cam.y + 34, 7)
+        print_centered('-items-', self.positions.inventory.left, inv_right, self.positions.inventory.top + 2, 7)
+
+        for i=1,inventory.rows do
+            for j=1,inventory.cols do
+                local item = inventory.items[j][i]
+                if (item ~= nil) then
+                    spr(item.spr, cam.x + self.positions.inventory.grid.left + ((j-1) * 8), cam.y + self.positions.inventory.grid.top + ((i-1) * 8))
+                end
+            end
+        end
+
+        -- cursor
+        draw_menu_rect(
+            self.cursor.draw_x - cam.x,
+            self.cursor.draw_y - cam.y,
+            self.cursor.draw_x - cam.x + 8,
+            self.cursor.draw_y - cam.y + 8,
+            7,
+            true
+        )
+
+
+        -- bottom bar
+        draw_menu_rect(
+            self.positions.bottom_bar.left,
+            self.positions.bottom_bar.top,
+            self.positions.bottom_bar.right,
+            self.positions.bottom_bar.bottom,
+            7
+        )
+
+        if (self.selected_item ~= nil) then
+            print_centered(self.selected_item.name, self.positions.bottom_bar.left, self.positions.bottom_bar.right, self.positions.bottom_bar.top + 2, 7)
+        end
+
+    end
+}
+
+function draw_menu_rect(x0, y0, x1, y1, color, transparent)
+    if (not(transparent)) then
+        rectfill(cam.x + x0, cam.y + y0, cam.x + x1, cam.y + y1, 0)
+    end
+    line(cam.x + x0 + 1, cam.y + y0, cam.x + x1 - 1, cam.y + y0, color)
+    line(cam.x + x0, cam.y + y0 + 1, cam.x + x0, cam.y + y1 - 1, color)
+    line(cam.x + x0 + 1, cam.y + y1, cam.x + x1 - 1, cam.y + y1, color)
+    line(cam.x + x1, cam.y + y0 + 1, cam.x + x1, cam.y + y1 - 1, color)
 end
 -->8
 __gfx__

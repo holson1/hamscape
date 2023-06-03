@@ -26,11 +26,11 @@ function init_char()
         update=update_char,
         menu=function(self)
             -- bring up pause / item menu
-            game_state = 'menu'
+            new_game_state = 'menu'
         end,
         action=function(self)
             -- talk / read
-            game_state = 'menu'
+            new_game_state = 'menu'
         end,
 
         draw=function(self)

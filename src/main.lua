@@ -12,6 +12,7 @@ function _init()
     -- game states change control delegates
 
     game_state = 'move'
+    new_game_state = nil
 
     -- thanks doc_robs!
     dust={}
@@ -20,11 +21,13 @@ function _init()
     inventory.items[1][2] = items.crab
     inventory.items[3][6] = items.crab
 
+    menu:init()
+
     char=init_char()
 end
 
 function _update()
-    pal()
+    --pal()
     t=(t+1)%128
 
     if (game_state == 'move') then
@@ -41,11 +44,15 @@ function _update()
     for d in all(dust) do
         d:update()
     end
+
+    if (new_game_state) then
+        game_state = new_game_state
+        new_game_state = nil
+    end
 end
 
 function _draw()
     cls()
-
 
     map(0,0,0,0,128,64)
 
@@ -60,5 +67,5 @@ function _draw()
         d:draw()
     end
 
-    debug()
+    --debug()
 end
