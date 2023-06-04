@@ -4,8 +4,8 @@ __lua__
 --src/char.lua
 function init_char()
     local char={
-        x=72,
-        y=192,
+        x=200,
+        y=240,
         dx=0,
         dy=0,
         runspeed=1,
@@ -13,6 +13,16 @@ function init_char()
         spri=1,
         state='stand',
         flip=false,
+        cell_x=0,
+        cell_y=0,
+        action_cell_x=0,
+        action_cell_y=0,
+        last_direction=0,
+        health=10,
+        max_health=10,
+        stamina=20,
+        max_stamina=20,
+        exhausted=false,
         states={
             ['stand']={
                 ['walk']=1,
@@ -39,6 +49,14 @@ function init_char()
 
         draw=function(self)
             spr(self.spr,self.x,self.y,1,1,self.flip)
+            -- stamina
+            if (self.stamina < self.max_stamina) then
+                local s_pct = (self.stamina / self.max_stamina) * 10
+                local s_col = 11
+                if (self.exhausted) then s_col = 8 end
+                line(self.x - 1, self.y - 2, self.x + s_pct - 1, self.y - 2, s_col)
+            end
+
         end
     }
     return char
@@ -53,19 +71,47 @@ end
 
 function get_input(_char)
     if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
-        _char.dx = -char.runspeed
+        local collision_cell = mget(_char.cell_x - 1, _char.cell_y)
+        if (fget(collision_cell) == 1) then
+            _char.dx = 0
+        else
+            _char.dx = -char.runspeed
+        end
+
         _char:change_state('walk')
         _char.flip = true
+        _char.last_direction = 0
     elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) ) then
-        _char.dx = char.runspeed
+        local collision_cell = mget(_char.cell_x + 1, _char.cell_y)
+        if (fget(collision_cell) == 1) then
+            _char.dx = 0
+        else
+            _char.dx = char.runspeed
+        end
+
         _char:change_state('walk')
         _char.flip = false
+        _char.last_direction = 0.5
     elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
-        _char.dy = -char.runspeed
+        local collision_cell = mget(_char.cell_x, _char.cell_y - 1)
+        if (fget(collision_cell) == 1) then
+            _char.dy = 0
+        else
+            _char.dy = -char.runspeed
+        end
+
         _char:change_state('walk')
+        _char.last_direction = 0.75
     elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
-        _char.dy = char.runspeed
+        local collision_cell = mget(_char.cell_x, _char.cell_y + 1)
+        if (fget(collision_cell) == 1) then
+            _char.dy = 0
+        else
+            _char.dy = char.runspeed
+        end
+
         _char:change_state('walk')
+        _char.last_direction = 0.25
     end
 
     if (btn(0) == btn(1)) then
@@ -80,12 +126,48 @@ function get_input(_char)
         _char:change_state('stand')
     end
 
+    -- action
     if (btnp(5)) then
+        -- check the action cell to see if we should do something different
+
+        -- item pickup
+        local cell_item = item_map:get(_char.action_cell_x, _char.action_cell_y)
+        if (cell_item ~= nil) then
+            local did_work = inventory:add(cell_item)
+            if (did_work) then
+                item_map:delete(_char.action_cell_x, _char.action_cell_y)
+            end
+
+            return
+        end
+        -- otherwise, just bring up the menu
         _char:menu()
     end
 
-    if (btnp(4)) then
-        _char:action()
+    -- run
+    if (btn(4) and (abs(_char.dx) > 0 or abs(_char.dy) > 0)) then
+        if (_char.stamina > 0 and _char.exhausted == false) then
+            _char.runspeed = 1.5
+
+            if (t % 8 == 0) then
+                add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
+                _char.stamina -= 1
+            end
+
+            if (_char.stamina <= 0) then
+                _char.runspeed = 1
+                _char.exhausted = true
+                _char.stamina = 0
+            end
+        end
+    else
+        _char.runspeed = 1
+        if (t % 32 == 0 and _char.stamina < _char.max_stamina) then
+            _char.stamina = min(_char.stamina + 1, _char.max_stamina)
+            if (_char.exhausted and _char.stamina > (_char.max_stamina / 2)) then
+                _char.exhausted = false
+            end 
+        end
     end
 end
 
@@ -98,6 +180,12 @@ function update_char(_char)
 
     _char.y += _char.dy
     _char.x += _char.dx
+
+    -- closest cell
+    _char.cell_x = round((_char.x + (3 * cos(_char.last_direction) - 1)) / 8)
+    _char.cell_y = round((_char.y + (3 * sin(_char.last_direction) - 1)) / 8)
+    _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
+    _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
 
     -- animation
     if (t % 4 == 0) then
@@ -121,7 +209,23 @@ inventory = {
         {},
         {},
         {}
-    }
+    },
+    add = function(self, item)
+        -- add to the first free space
+        for i=1,self.rows do
+            for j=1,self.cols do
+                if (self.items[i][j] == nil) then
+                   self.items[i][j] = item
+                   return true 
+                end
+            end
+        end
+        return false
+    end,
+    drop = function(self, x, y)
+    end,
+    remove = function(self, x, y)
+    end
 }
 -->8
 --src/items.lua
@@ -138,6 +242,35 @@ items.log = {
 }
 
 
+item_map = {
+    _={},
+    get = function(self, x, y)
+        if (self._[y] ~= nil) then
+            return self._[y][x]
+        end
+    end,
+    set = function(self, x, y, item)
+        if (self._[y] == nil) then
+            self._[y] = {}
+        end
+
+        self._[y][x] = item
+    end,
+    delete = function(self, x, y)
+        self:set(x, y, nil)
+    end,
+    draw = function(self)
+        for i=1,64 do
+            if (self._[i] ~= nil) then
+                for j=1,64 do
+                    if (self._[i][j] ~= nil) then
+                        spr(self._[i][j].spr, j * 8, i * 8)
+                    end
+                end
+            end
+        end
+    end
+}
 -->8
 --src/lib/dust.lua
 function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
@@ -229,9 +362,19 @@ function log(str)
 end
    
 function debug()
+    local current_item = item_map:get(char.action_cell_x, char.action_cell_y)
+    local item_s = ''
+    if (current_item ~= nil) then
+        item_s = current_item.name
+    end
+
+
     vars = {
         't='..t,
-        "draw_x="..menu.cursor.draw_x
+        "at="..at,
+        "acx="..char.action_cell_x,
+        "acy="..char.action_cell_y,
+        "item="..item_s
     }
 
     -- draw the log
@@ -242,6 +385,10 @@ function debug()
     for i,v in ipairs(vars) do
         print(v,(cam.x)+8,(cam.y)+(i*8),15)
     end
+
+    -- char action cells
+    rect(char.cell_x * 8, char.cell_y * 8, (char.cell_x * 8) + 8, (char.cell_y * 8) + 8, 8)
+    rect(char.action_cell_x * 8, char.action_cell_y * 8, (char.action_cell_x * 8) + 8, (char.action_cell_y * 8) + 8, 9)
 end
 -->8
 --src/main.lua
@@ -250,6 +397,7 @@ end
 function _init()
     -- global vars
     t=0
+    at = 0
     cam = {
         x = 0,
         y = 0
@@ -271,11 +419,17 @@ function _init()
     menu:init()
 
     char=init_char()
+
+    item_map:set(26, 29, items.crab)
 end
 
 function _update()
     --pal()
     t=(t+1)%128
+    
+    if ((t % 4) == 0) then
+        at = (at+1)%16
+    end
 
     if (game_state == 'move') then
         char:update()
@@ -304,7 +458,10 @@ function _draw()
     map(0,0,0,0,128,64)
 
     camera(cam.x, cam.y)
+
+    item_map:draw()
     char:draw()
+
 
     if (game_state == 'menu') then
         menu:draw()
@@ -389,6 +546,7 @@ menu = {
         if (btnp(5)) then
             -- drop item
             if (self.selected_item) then
+                item_map:set(char.cell_x, char.cell_y, inventory.items[self.cursor.x][self.cursor.y])
                 inventory.items[self.cursor.x][self.cursor.y] = nil
             end
         end
@@ -552,6 +710,9 @@ b099990b0000000000000555555555500ee1e1e00777776000777770000000000000000000000000
 00000000000000000000000000000000000000000000000000900000000000000000006464646400000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000007000000000000072640082000000000000000000000000000000000000000000000000
+__gff__
+0001010000000001000000000000000000010101000000000000000001000000000000000000000000000000000000000000000000000000000000000000000001010000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 4848484848484848484848484848484848484848484848484848484848484646464a4a4a4a4a4a4a4a4a4a4a4a4a4a000000000000000000000000000000000000484848484848484848484848484a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a
 484848484848484848484848484848484848484848480000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a4a4a4a4a4a00000000000000000000000000000000000000000000004a4a

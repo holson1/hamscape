@@ -69,6 +69,7 @@ menu = {
         if (btnp(5)) then
             -- drop item
             if (self.selected_item) then
+                item_map:set(char.cell_x, char.cell_y, inventory.items[self.cursor.x][self.cursor.y])
                 inventory.items[self.cursor.x][self.cursor.y] = nil
             end
         end
