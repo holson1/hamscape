@@ -36,6 +36,7 @@ function init_char()
             ['walk']={004,004,020,020},
         },
         change_state=change_state,
+        contextual_action=nil,
         get_input=get_input,
         update=update_char,
         menu=function(self)
@@ -49,12 +50,18 @@ function init_char()
 
         draw=function(self)
             spr(self.spr,self.x,self.y,1,1,self.flip)
+
             -- stamina
             if (self.stamina < self.max_stamina) then
                 local s_pct = (self.stamina / self.max_stamina) * 10
                 local s_col = 11
                 if (self.exhausted) then s_col = 8 end
                 line(self.x - 1, self.y - 2, self.x + s_pct - 1, self.y - 2, s_col)
+            end
+
+            -- contextual action
+            if (self.contextual_action) then
+                print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
             end
 
         end
@@ -126,16 +133,22 @@ function get_input(_char)
         _char:change_state('stand')
     end
 
+    -- determine contextual action
+    _char.contextual_action = nil
+    local cell_item = item_map:get(_char.cell_x, _char.cell_y)
+    if (cell_item ~= nil) then
+        _char.contextual_action = 'pickup'
+    end
+
     -- action
     if (btnp(5)) then
         -- check the action cell to see if we should do something different
 
         -- item pickup
-        local cell_item = item_map:get(_char.action_cell_x, _char.action_cell_y)
-        if (cell_item ~= nil) then
+        if (_char.contextual_action == 'pickup') then
             local did_work = inventory:add(cell_item)
             if (did_work) then
-                item_map:delete(_char.action_cell_x, _char.action_cell_y)
+                item_map:delete(_char.cell_x, _char.cell_y)
             end
 
             return
