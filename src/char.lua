@@ -28,8 +28,8 @@ function init_char()
             }
         },
         animations={
-            ['stand']={004},
-            ['walk']={004,004,020,020},
+            ['stand']={080},
+            ['walk']={080,080},
         },
         change_state=change_state,
         contextual_action=nil,
@@ -56,7 +56,7 @@ function init_char()
             end
 
             -- contextual action
-            if (self.contextual_action) then
+            if (self.contextual_action and game_state == 'move') then
                 print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
             end
 
@@ -73,9 +73,11 @@ function change_state(_char, next_state)
 end
 
 function get_input(_char)
+    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+
     if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
         local collision_cell = mget(_char.cell_x - 1, _char.cell_y)
-        if (fget(collision_cell) == 1) then
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
             _char.dx = 0
         else
             _char.dx = -char.runspeed
@@ -86,7 +88,7 @@ function get_input(_char)
         _char.last_direction = 0
     elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) ) then
         local collision_cell = mget(_char.cell_x + 1, _char.cell_y)
-        if (fget(collision_cell) == 1) then
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
             _char.dx = 0
         else
             _char.dx = char.runspeed
@@ -97,7 +99,7 @@ function get_input(_char)
         _char.last_direction = 0.5
     elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
         local collision_cell = mget(_char.cell_x, _char.cell_y - 1)
-        if (fget(collision_cell) == 1) then
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
             _char.dy = 0
         else
             _char.dy = -char.runspeed
@@ -107,7 +109,7 @@ function get_input(_char)
         _char.last_direction = 0.75
     elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
         local collision_cell = mget(_char.cell_x, _char.cell_y + 1)
-        if (fget(collision_cell) == 1) then
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
             _char.dy = 0
         else
             _char.dy = char.runspeed
@@ -131,6 +133,15 @@ function get_input(_char)
 
     -- determine contextual action
     _char.contextual_action = nil
+    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+
+    -- talk / npcs
+    local npc_target = npc_manager._[action_key]
+    if (npc_target) then
+        _char.contextual_action = 'talk'
+    end
+
+    -- pickup items
     local cell_item = item_map:get(_char.cell_x, _char.cell_y)
     if (cell_item ~= nil) then
         _char.contextual_action = 'pickup'
@@ -149,6 +160,13 @@ function get_input(_char)
 
             return
         end
+
+        if (_char.contextual_action == 'talk') then
+            new_game_state = 'talk'
+            dialog_manager.current_npc = npc_target
+            return
+        end
+
         -- otherwise, just bring up the menu
         _char:menu()
     end

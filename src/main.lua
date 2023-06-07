@@ -25,8 +25,9 @@ function _init()
     menu:init()
 
     char=init_char()
-
     item_map:set(26, 29, items.crab)
+
+    npc_manager:add(npc_pig)
 end
 
 function _update()
@@ -39,14 +40,20 @@ function _update()
 
     if (game_state == 'move') then
         char:update()
+        npc_manager:update_all()
     end
 
     if (game_state == 'menu') then
         menu:update()
     end
 
+    if (game_state == 'talk') then
+        dialog_manager:update()
+    end
+
     cam.x = max(char.x - 64, 0)
     cam.y = max(char.y - 64, 0)
+
 
     for d in all(dust) do
         d:update()
@@ -56,6 +63,7 @@ function _update()
         game_state = new_game_state
         new_game_state = nil
     end
+
 end
 
 function _draw()
@@ -66,6 +74,7 @@ function _draw()
     camera(cam.x, cam.y)
 
     item_map:draw()
+    npc_manager:draw_all()
     char:draw()
 
 
@@ -73,9 +82,13 @@ function _draw()
         menu:draw()
     end
 
+    if (game_state == 'talk') then
+        dialog_manager:draw()
+    end
+
     for d in all(dust) do
         d:draw()
     end
 
-    --debug()
+    debug()
 end

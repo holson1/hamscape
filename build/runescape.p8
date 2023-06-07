@@ -32,8 +32,8 @@ function init_char()
             }
         },
         animations={
-            ['stand']={004},
-            ['walk']={004,004,020,020},
+            ['stand']={080},
+            ['walk']={080,080},
         },
         change_state=change_state,
         contextual_action=nil,
@@ -60,7 +60,7 @@ function init_char()
             end
 
             -- contextual action
-            if (self.contextual_action) then
+            if (self.contextual_action and game_state == 'move') then
                 print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
             end
 
@@ -77,9 +77,11 @@ function change_state(_char, next_state)
 end
 
 function get_input(_char)
+    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+
     if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
         local collision_cell = mget(_char.cell_x - 1, _char.cell_y)
-        if (fget(collision_cell) == 1) then
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
             _char.dx = 0
         else
             _char.dx = -char.runspeed
@@ -90,7 +92,7 @@ function get_input(_char)
         _char.last_direction = 0
     elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) ) then
         local collision_cell = mget(_char.cell_x + 1, _char.cell_y)
-        if (fget(collision_cell) == 1) then
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
             _char.dx = 0
         else
             _char.dx = char.runspeed
@@ -101,7 +103,7 @@ function get_input(_char)
         _char.last_direction = 0.5
     elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
         local collision_cell = mget(_char.cell_x, _char.cell_y - 1)
-        if (fget(collision_cell) == 1) then
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
             _char.dy = 0
         else
             _char.dy = -char.runspeed
@@ -111,7 +113,7 @@ function get_input(_char)
         _char.last_direction = 0.75
     elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
         local collision_cell = mget(_char.cell_x, _char.cell_y + 1)
-        if (fget(collision_cell) == 1) then
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
             _char.dy = 0
         else
             _char.dy = char.runspeed
@@ -135,6 +137,15 @@ function get_input(_char)
 
     -- determine contextual action
     _char.contextual_action = nil
+    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+
+    -- talk / npcs
+    local npc_target = npc_manager._[action_key]
+    if (npc_target) then
+        _char.contextual_action = 'talk'
+    end
+
+    -- pickup items
     local cell_item = item_map:get(_char.cell_x, _char.cell_y)
     if (cell_item ~= nil) then
         _char.contextual_action = 'pickup'
@@ -153,6 +164,13 @@ function get_input(_char)
 
             return
         end
+
+        if (_char.contextual_action == 'talk') then
+            new_game_state = 'talk'
+            dialog_manager.current_npc = npc_target
+            return
+        end
+
         -- otherwise, just bring up the menu
         _char:menu()
     end
@@ -321,16 +339,10 @@ function new_group(bp)
                 end
             end
         end,
-
-        turn=function(self)
-            for v in all(self._) do
-                v:turn()
-            end
-        end,
         
         draw=function(self)
             for v in all(self._) do
-                spr(v.s,v.x*8,v.y*8,1,1,v.flip)
+                spr(v.s,v.x,v.y,1,1,v.flip)
             end
         end
     }
@@ -432,8 +444,9 @@ function _init()
     menu:init()
 
     char=init_char()
-
     item_map:set(26, 29, items.crab)
+
+    npc_manager:add(npc_pig)
 end
 
 function _update()
@@ -446,14 +459,20 @@ function _update()
 
     if (game_state == 'move') then
         char:update()
+        npc_manager:update_all()
     end
 
     if (game_state == 'menu') then
         menu:update()
     end
 
+    if (game_state == 'talk') then
+        dialog_manager:update()
+    end
+
     cam.x = max(char.x - 64, 0)
     cam.y = max(char.y - 64, 0)
+
 
     for d in all(dust) do
         d:update()
@@ -463,6 +482,7 @@ function _update()
         game_state = new_game_state
         new_game_state = nil
     end
+
 end
 
 function _draw()
@@ -473,6 +493,7 @@ function _draw()
     camera(cam.x, cam.y)
 
     item_map:draw()
+    npc_manager:draw_all()
     char:draw()
 
 
@@ -480,11 +501,15 @@ function _draw()
         menu:draw()
     end
 
+    if (game_state == 'talk') then
+        dialog_manager:draw()
+    end
+
     for d in all(dust) do
         d:draw()
     end
 
-    --debug()
+    debug()
 end
 -->8
 --src/menu.lua
@@ -636,6 +661,84 @@ function draw_menu_rect(x0, y0, x1, y1, color, transparent)
     line(cam.x + x0 + 1, cam.y + y1, cam.x + x1 - 1, cam.y + y1, color)
     line(cam.x + x1, cam.y + y0 + 1, cam.x + x1, cam.y + y1 - 1, color)
 end
+-->8
+--src/npc.lua
+npc_blueprint = {
+    x=nil,
+    y=nil,
+    dx=0,
+    dy=0,
+    spr=nil,
+    dialog=nil,
+    update = function(self)
+        -- -- walk randomly
+        -- if (t % 64 == 0) then
+        --     local dir = rnd({0, 0.25, 0.5, 0.75})
+        --     self.dx = cos(dir) * 0.25
+        --     self.dy = sin(dir) * 0.25
+        -- end
+
+        -- self.x += self.dx
+        -- self.y += self.dy 
+    end,
+}
+
+npc_manager = {
+    _ = {},
+    add=function(self,p)
+        for k,v in pairs(npc_blueprint) do
+            if v!=nil then
+                p[k]=v
+            end
+        end
+        local key = p.x .. '-' .. p.y
+        self._[key] = p
+    end,
+    
+    -- TODO: only update the npcs that are on screen
+    update_all=function(self)
+        for k,v in pairs(self._) do
+            v:update()
+        end
+    end,
+    
+    -- TODO: only draw the npcs that are on screen
+    draw_all=function(self)
+        for k,v in pairs(self._) do
+            spr(v.s,v.x,v.y,1,1,v.flip)
+        end
+    end
+}
+
+
+npc_pig = {
+    x = 208,
+    y = 208,
+    s = 084,
+    dialog = 'oink!'
+}
+
+dialog_manager = {
+    current_npc=nil,
+    update = function(self)
+        if (btnp(4) or btnp(5)) then
+            self.current_npc = nil
+            new_game_state = 'move'
+        end
+    end,
+    draw = function(self)
+        if (self.current_npc) then
+            draw_menu_rect(
+                16,
+                111,
+                111,
+                127,
+                7
+            )
+            print(self.current_npc.dialog, cam.x + 18, cam.y + 113, 7)
+        end
+    end
+}
 -->8
 __gfx__
 00000000000330000000000000000900000000000000000008000080000000000000000000000000000000000000000005000050000000000000000000000000
