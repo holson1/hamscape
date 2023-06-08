@@ -54,6 +54,12 @@ function _update()
     cam.x = max(char.x - 64, 0)
     cam.y = max(char.y - 64, 0)
 
+    -- water idea
+    -- if (t%4 == 0) then
+    --     add_new_dust(144 + rndi(0,8), 232 + rndi(0,8), 0.5, 0, 9, 1, 0.01, rnd({1, 12, 13, 7}))
+    --     add_new_dust(136 + rndi(0,8), 232 + rndi(0,8), 0.5, 0, 9, 2, 0, rnd({1, 12, 13, 7}))
+    --     add_new_dust(136 + rndi(0,8), 224 + rndi(0,8), 0.5, 0, 9, 2, 0, rnd({1, 12, 13, 7}))
+    -- end
 
     for d in all(dust) do
         d:update()
