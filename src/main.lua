@@ -9,9 +9,9 @@ function _init()
         y = 0
     }
     msg=''
+
     -- states: move, menu, talk, etc.
     -- game states change control delegates
-
     game_state = 'move'
     new_game_state = nil
 
@@ -28,6 +28,7 @@ function _init()
     item_map:set(26, 29, items.crab)
 
     npc_manager:add(npc_pig)
+    collision_manager:register_collider('test_box', 250, 250, 256, 283, collision_manager.collider_types.solid)
 end
 
 function _update()
@@ -54,13 +55,6 @@ function _update()
     cam.x = max(char.x - 64, 0)
     cam.y = max(char.y - 64, 0)
 
-    -- water idea
-    -- if (t%4 == 0) then
-    --     add_new_dust(144 + rndi(0,8), 232 + rndi(0,8), 0.5, 0, 9, 1, 0.01, rnd({1, 12, 13, 7}))
-    --     add_new_dust(136 + rndi(0,8), 232 + rndi(0,8), 0.5, 0, 9, 2, 0, rnd({1, 12, 13, 7}))
-    --     add_new_dust(136 + rndi(0,8), 224 + rndi(0,8), 0.5, 0, 9, 2, 0, rnd({1, 12, 13, 7}))
-    -- end
-
     for d in all(dust) do
         d:update()
     end
@@ -75,9 +69,9 @@ end
 function _draw()
     cls()
 
-    map(0,0,0,0,128,64)
 
     camera(cam.x, cam.y)
+    map(0,0,0,0,128,64)
 
     item_map:draw()
     npc_manager:draw_all()
@@ -96,5 +90,5 @@ function _draw()
         d:draw()
     end
 
-    --debug()
+    debug()
 end

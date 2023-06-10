@@ -1,4 +1,5 @@
 npc_blueprint = {
+    id=nil,
     x=nil,
     y=nil,
     dx=0,
@@ -26,6 +27,16 @@ npc_manager = {
                 p[k]=v
             end
         end
+
+        p.collision_component = collision_manager:register_collider(
+            p.id,
+            p.x,
+            p.y,
+            p.x + 8,
+            p.y + 8,
+            collision_manager.collider_types.solid
+        )
+
         local key = p.x .. '-' .. p.y
         self._[key] = p
     end,
@@ -47,6 +58,7 @@ npc_manager = {
 
 
 npc_pig = {
+    id='farm_pig',
     x = 208,
     y = 208,
     s = 084,

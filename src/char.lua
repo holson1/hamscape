@@ -13,6 +13,7 @@ function init_char()
         cell_y=0,
         action_cell_x=0,
         action_cell_y=0,
+        collision_component=nil,
         last_direction=0,
         health=10,
         max_health=10,
@@ -62,6 +63,16 @@ function init_char()
 
         end
     }
+
+    char.collision_component = collision_manager:register_collider(
+        'char',
+        char.x,
+        char.y,
+        char.x + 8,
+        char.y + 8,
+        collision_manager.collider_types.solid
+    )
+
     return char
 end
 
@@ -77,45 +88,54 @@ function get_input(_char)
 
     -- if char collision box would overlap with another collision box, stop
 
+    local test_collider = _char.collision_component
 
     if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
-        local collision_cell = mget(_char.cell_x - 1, _char.cell_y)
-        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
+        test_collider.left -= _char.runspeed
+        test_collider.right -= _char.runspeed
+
+        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
             _char.dx = 0
         else
-            _char.dx = -char.runspeed
+            _char.dx = -_char.runspeed
         end
 
         _char:change_state('walk')
         _char.flip = true
         _char.last_direction = 0
     elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) ) then
-        local collision_cell = mget(_char.cell_x + 1, _char.cell_y)
-        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
+        test_collider.left += _char.runspeed
+        test_collider.right += _char.runspeed
+
+        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
             _char.dx = 0
         else
-            _char.dx = char.runspeed
+            _char.dx = _char.runspeed
         end
 
         _char:change_state('walk')
         _char.flip = false
         _char.last_direction = 0.5
     elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
-        local collision_cell = mget(_char.cell_x, _char.cell_y - 1)
-        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
+        test_collider.top -= _char.runspeed
+        test_collider.bottom -= _char.runspeed
+
+        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
             _char.dy = 0
         else
-            _char.dy = -char.runspeed
+            _char.dy = -_char.runspeed
         end
 
         _char:change_state('walk')
         _char.last_direction = 0.75
     elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
-        local collision_cell = mget(_char.cell_x, _char.cell_y + 1)
-        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
+        test_collider.top += _char.runspeed
+        test_collider.bottom += _char.runspeed
+
+        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
             _char.dy = 0
         else
-            _char.dy = char.runspeed
+            _char.dy = _char.runspeed
         end
 
         _char:change_state('walk')
@@ -208,8 +228,11 @@ function update_char(_char)
 
     _char:get_input()
 
+
     _char.y += _char.dy
     _char.x += _char.dx
+
+    _char.collision_component:update(_char.x, _char.y, _char.x + 8, _char.y + 8)
 
     -- closest cell
     _char.cell_x = round((_char.x + (3 * cos(_char.last_direction) - 1)) / 8)
