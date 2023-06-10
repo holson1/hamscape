@@ -34,6 +34,7 @@ function debug()
     end
 
     -- char action cells
-    rect(char.cell_x * 8, char.cell_y * 8, (char.cell_x * 8) + 8, (char.cell_y * 8) + 8, 8)
+    rect(char.x, char.y, char.x + 8, char.y + 8, 8)
+    -- rect(char.cell_x * 8, char.cell_y * 8, (char.cell_x * 8) + 8, (char.cell_y * 8) + 8, 8)
     rect(char.action_cell_x * 8, char.action_cell_y * 8, (char.action_cell_x * 8) + 8, (char.action_cell_y * 8) + 8, 9)
 end

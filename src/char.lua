@@ -28,8 +28,8 @@ function init_char()
             }
         },
         animations={
-            ['stand']={080},
-            ['walk']={080,080},
+            ['stand']={096},
+            ['walk']={096, 096, 097, 097},
         },
         change_state=change_state,
         contextual_action=nil,
@@ -74,6 +74,9 @@ end
 
 function get_input(_char)
     local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+
+    -- if char collision box would overlap with another collision box, stop
+
 
     if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
         local collision_cell = mget(_char.cell_x - 1, _char.cell_y)

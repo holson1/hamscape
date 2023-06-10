@@ -1,6 +1,267 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
+--src/char.lua
+function init_char()
+    local char={
+        x=200,
+        y=240,
+        dx=0,
+        dy=0,
+        runspeed=1,
+        spr=004,
+        spri=1,
+        state='stand',
+        flip=false,
+        cell_x=0,
+        cell_y=0,
+        action_cell_x=0,
+        action_cell_y=0,
+        last_direction=0,
+        health=10,
+        max_health=10,
+        stamina=20,
+        max_stamina=20,
+        exhausted=false,
+        states={
+            ['stand']={
+                ['walk']=1,
+            },
+            ['walk']={
+                ['stand']=1,
+            }
+        },
+        animations={
+            ['stand']={096},
+            ['walk']={096, 096, 097, 097},
+        },
+        change_state=change_state,
+        contextual_action=nil,
+        get_input=get_input,
+        update=update_char,
+        menu=function(self)
+            -- bring up pause / item menu
+            new_game_state = 'menu'
+        end,
+        action=function(self)
+            -- talk / read
+            new_game_state = 'menu'
+        end,
+
+        draw=function(self)
+            spr(self.spr,self.x,self.y,1,1,self.flip)
+
+            -- stamina
+            if (self.stamina < self.max_stamina) then
+                local s_pct = (self.stamina / self.max_stamina) * 10
+                local s_col = 11
+                if (self.exhausted) then s_col = 8 end
+                line(self.x - 1, self.y - 2, self.x + s_pct - 1, self.y - 2, s_col)
+            end
+
+            -- contextual action
+            if (self.contextual_action and game_state == 'move') then
+                print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
+            end
+
+        end
+    }
+    return char
+end
+
+function change_state(_char, next_state)
+    if (_char.states[_char.state][next_state] ~= nil) then
+        _char.state = next_state
+        _char.spri = 1
+    end
+end
+
+function get_input(_char)
+    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+
+    -- if char collision box would overlap with another collision box, stop
+
+
+    if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
+        local collision_cell = mget(_char.cell_x - 1, _char.cell_y)
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
+            _char.dx = 0
+        else
+            _char.dx = -char.runspeed
+        end
+
+        _char:change_state('walk')
+        _char.flip = true
+        _char.last_direction = 0
+    elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) ) then
+        local collision_cell = mget(_char.cell_x + 1, _char.cell_y)
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
+            _char.dx = 0
+        else
+            _char.dx = char.runspeed
+        end
+
+        _char:change_state('walk')
+        _char.flip = false
+        _char.last_direction = 0.5
+    elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
+        local collision_cell = mget(_char.cell_x, _char.cell_y - 1)
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
+            _char.dy = 0
+        else
+            _char.dy = -char.runspeed
+        end
+
+        _char:change_state('walk')
+        _char.last_direction = 0.75
+    elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
+        local collision_cell = mget(_char.cell_x, _char.cell_y + 1)
+        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
+            _char.dy = 0
+        else
+            _char.dy = char.runspeed
+        end
+
+        _char:change_state('walk')
+        _char.last_direction = 0.25
+    end
+
+    if (btn(0) == btn(1)) then
+        _char.dx = 0 
+    end
+
+    if (btn(2) == btn(3)) then
+        _char.dy = 0 
+    end 
+
+    if (_char.dx == 0 and _char.dy == 0) then
+        _char:change_state('stand')
+    end
+
+    -- determine contextual action
+    _char.contextual_action = nil
+    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+
+    -- talk / npcs
+    local npc_target = npc_manager._[action_key]
+    if (npc_target) then
+        _char.contextual_action = 'talk'
+    end
+
+    -- pickup items
+    local cell_item = item_map:get(_char.cell_x, _char.cell_y)
+    if (cell_item ~= nil) then
+        _char.contextual_action = 'pickup'
+    end
+
+    -- action
+    if (btnp(5)) then
+        -- check the action cell to see if we should do something different
+
+        -- item pickup
+        if (_char.contextual_action == 'pickup') then
+            local did_work = inventory:add(cell_item)
+            if (did_work) then
+                item_map:delete(_char.cell_x, _char.cell_y)
+            end
+
+            return
+        end
+
+        if (_char.contextual_action == 'talk') then
+            new_game_state = 'talk'
+            dialog_manager.current_npc = npc_target
+            return
+        end
+
+        -- otherwise, just bring up the menu
+        _char:menu()
+    end
+
+    -- run
+    if (btn(4) and (abs(_char.dx) > 0 or abs(_char.dy) > 0)) then
+        if (_char.stamina > 0 and _char.exhausted == false) then
+            _char.runspeed = 1.5
+
+            if (t % 8 == 0) then
+                add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
+                _char.stamina -= 1
+            end
+
+            if (_char.stamina <= 0) then
+                _char.runspeed = 1
+                _char.exhausted = true
+                _char.stamina = 0
+            end
+        end
+    else
+        _char.runspeed = 1
+        if (t % 32 == 0 and _char.stamina < _char.max_stamina) then
+            _char.stamina = min(_char.stamina + 1, _char.max_stamina)
+            if (_char.exhausted and _char.stamina > (_char.max_stamina / 2)) then
+                _char.exhausted = false
+            end 
+        end
+    end
+end
+
+function update_char(_char)
+    if (_char.pause) then
+        return
+    end
+
+    _char:get_input()
+
+    _char.y += _char.dy
+    _char.x += _char.dx
+
+    -- closest cell
+    _char.cell_x = round((_char.x + (3 * cos(_char.last_direction) - 1)) / 8)
+    _char.cell_y = round((_char.y + (3 * sin(_char.last_direction) - 1)) / 8)
+    _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
+    _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
+
+    -- animation
+    if (t % 4 == 0) then
+        _char.spri = ((_char.spri + 1) % #_char.animations[_char.state]) + 1
+    end
+
+    _char.spr = _char.animations[_char.state][_char.spri]
+end
+-->8
+--src/inventory.lua
+inventory = {
+    rows=5,
+    cols=5,
+    items = {
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+    },
+    add = function(self, item)
+        -- add to the first free space
+        for i=1,self.rows do
+            for j=1,self.cols do
+                if (self.items[i][j] == nil) then
+                   self.items[i][j] = item
+                   return true 
+                end
+            end
+        end
+        return false
+    end,
+    drop = function(self, x, y)
+    end,
+    remove = function(self, x, y)
+    end
+}
+-->8
 --src/items.lua
 items = {}
 
@@ -44,6 +305,120 @@ item_map = {
         end
     end
 }
+-->8
+--src/lib/dust.lua
+function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
+    add(dust, {
+    fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=8,grav=_g,draw=function(self)
+    circfill(self.x,self.y,self.rad,self.col)
+    end,update=function(self)
+    self.x+=self.dx self.y+=self.dy
+    self.dy+=self.grav self.rad*=0.9 self.life-=1
+    if type(self.fade)=="table"then self.col=self.fade[flr(#self.fade*(self.life/self.orig_life))+1]else self.col=self.fade end
+    if self.life<0then del(dust,self)end end})
+end
+-->8
+--src/lib/group.lua
+function new_group(bp)
+    return {
+        _={},
+        bp=bp,
+        
+        new=function(self,p)
+            for k,v in pairs(bp) do
+                if v!=nil then
+                    p[k]=v
+                end
+            end
+            p.alive=true
+            add(self._,p)
+        end,
+           
+        update=function(self)
+            for i,v in ipairs(self._) do
+                v:update()
+                if v.alive==false then
+                del(self._,self._[i])
+                end
+            end
+        end,
+        
+        draw=function(self)
+            for v in all(self._) do
+                spr(v.s,v.x,v.y,1,1,v.flip)
+            end
+        end
+    }
+end
+-->8
+--src/lib/util.lua
+function rndi(min,max)
+    return flr(rnd(max - min)) + min
+end
+
+function coord_match(a,b)
+    return a[1] == b[1] and a[2] == b[2]
+end
+
+function in_bounds(a,b)
+    return a > 0 and a < MAP_SIZE + 1 and b > 0 and b < MAP_SIZE + 1
+end
+
+function round(x)
+    if ((x - flr(x)) >= 0.5) then
+        return ceil(x)
+    else
+        return flr(x)
+    end
+end
+
+function print_centered(s, x1, x2, y, col)
+    local str_w = #s * 2
+    local center_point = ceil((x2 - x1) / 2) + x1
+    print(s, cam.x + (center_point - str_w), cam.y + y, col)
+end
+-->8
+--src/log.lua
+_log={}
+log_l=4
+for i=1,log_l do
+    add(_log,'')
+end
+
+function log(str)
+    add(_log,str)
+end
+   
+function debug()
+    local current_item = item_map:get(char.action_cell_x, char.action_cell_y)
+    local item_s = ''
+    if (current_item ~= nil) then
+        item_s = current_item.name
+    end
+
+
+    vars = {
+        't='..t,
+        "at="..at,
+        "acx="..char.action_cell_x,
+        "acy="..char.action_cell_y,
+        "item="..item_s
+    }
+
+    -- draw the log
+    for i=count(_log)-log_l+1,count(_log) do
+        add(vars,'> '.._log[i])
+    end
+
+    for i,v in ipairs(vars) do
+        print(v,(cam.x)+8,(cam.y)+(i*8),15)
+    end
+
+    -- char action cells
+    rect(char.x, char.y, char.x + 8, char.y + 8, 8)
+    -- rect(char.cell_x * 8, char.cell_y * 8, (char.cell_x * 8) + 8, (char.cell_y * 8) + 8, 8)
+    rect(char.action_cell_x * 8, char.action_cell_y * 8, (char.action_cell_x * 8) + 8, (char.action_cell_y * 8) + 8, 9)
+end
 -->8
 --src/main.lua
 -- sword 
@@ -144,41 +519,8 @@ function _draw()
         d:draw()
     end
 
-    debug()
+    --debug()
 end
--->8
---src/inventory.lua
-inventory = {
-    rows=5,
-    cols=5,
-    items = {
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {}
-    },
-    add = function(self, item)
-        -- add to the first free space
-        for i=1,self.rows do
-            for j=1,self.cols do
-                if (self.items[i][j] == nil) then
-                   self.items[i][j] = item
-                   return true 
-                end
-            end
-        end
-        return false
-    end,
-    drop = function(self, x, y)
-    end,
-    remove = function(self, x, y)
-    end
-}
 -->8
 --src/menu.lua
 menu = {
@@ -408,344 +750,6 @@ dialog_manager = {
     end
 }
 -->8
---src/lib/group.lua
-function new_group(bp)
-    return {
-        _={},
-        bp=bp,
-        
-        new=function(self,p)
-            for k,v in pairs(bp) do
-                if v!=nil then
-                    p[k]=v
-                end
-            end
-            p.alive=true
-            add(self._,p)
-        end,
-           
-        update=function(self)
-            for i,v in ipairs(self._) do
-                v:update()
-                if v.alive==false then
-                del(self._,self._[i])
-                end
-            end
-        end,
-        
-        draw=function(self)
-            for v in all(self._) do
-                spr(v.s,v.x,v.y,1,1,v.flip)
-            end
-        end
-    }
-end
--->8
---src/lib/dust.lua
-function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
-    add(dust, {
-    fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=8,grav=_g,draw=function(self)
-    circfill(self.x,self.y,self.rad,self.col)
-    end,update=function(self)
-    self.x+=self.dx self.y+=self.dy
-    self.dy+=self.grav self.rad*=0.9 self.life-=1
-    if type(self.fade)=="table"then self.col=self.fade[flr(#self.fade*(self.life/self.orig_life))+1]else self.col=self.fade end
-    if self.life<0then del(dust,self)end end})
-end
--->8
---src/lib/util.lua
-function rndi(min,max)
-    return flr(rnd(max - min)) + min
-end
-
-function coord_match(a,b)
-    return a[1] == b[1] and a[2] == b[2]
-end
-
-function in_bounds(a,b)
-    return a > 0 and a < MAP_SIZE + 1 and b > 0 and b < MAP_SIZE + 1
-end
-
-function round(x)
-    if ((x - flr(x)) >= 0.5) then
-        return ceil(x)
-    else
-        return flr(x)
-    end
-end
-
-function print_centered(s, x1, x2, y, col)
-    local str_w = #s * 2
-    local center_point = ceil((x2 - x1) / 2) + x1
-    print(s, cam.x + (center_point - str_w), cam.y + y, col)
-end
--->8
---src/log.lua
-_log={}
-log_l=4
-for i=1,log_l do
-    add(_log,'')
-end
-
-function log(str)
-    add(_log,str)
-end
-   
-function debug()
-    local current_item = item_map:get(char.action_cell_x, char.action_cell_y)
-    local item_s = ''
-    if (current_item ~= nil) then
-        item_s = current_item.name
-    end
-
-
-    vars = {
-        't='..t,
-        "at="..at,
-        "acx="..char.action_cell_x,
-        "acy="..char.action_cell_y,
-        "item="..item_s
-    }
-
-    -- draw the log
-    for i=count(_log)-log_l+1,count(_log) do
-        add(vars,'> '.._log[i])
-    end
-
-    for i,v in ipairs(vars) do
-        print(v,(cam.x)+8,(cam.y)+(i*8),15)
-    end
-
-    -- char action cells
-    rect(char.cell_x * 8, char.cell_y * 8, (char.cell_x * 8) + 8, (char.cell_y * 8) + 8, 8)
-    rect(char.action_cell_x * 8, char.action_cell_y * 8, (char.action_cell_x * 8) + 8, (char.action_cell_y * 8) + 8, 9)
-end
--->8
---src/char.lua
-function init_char()
-    local char={
-        x=200,
-        y=240,
-        dx=0,
-        dy=0,
-        runspeed=1,
-        spr=004,
-        spri=1,
-        state='stand',
-        flip=false,
-        cell_x=0,
-        cell_y=0,
-        action_cell_x=0,
-        action_cell_y=0,
-        last_direction=0,
-        health=10,
-        max_health=10,
-        stamina=20,
-        max_stamina=20,
-        exhausted=false,
-        states={
-            ['stand']={
-                ['walk']=1,
-            },
-            ['walk']={
-                ['stand']=1,
-            }
-        },
-        animations={
-            ['stand']={080},
-            ['walk']={080,080},
-        },
-        change_state=change_state,
-        contextual_action=nil,
-        get_input=get_input,
-        update=update_char,
-        menu=function(self)
-            -- bring up pause / item menu
-            new_game_state = 'menu'
-        end,
-        action=function(self)
-            -- talk / read
-            new_game_state = 'menu'
-        end,
-
-        draw=function(self)
-            spr(self.spr,self.x,self.y,1,1,self.flip)
-
-            -- stamina
-            if (self.stamina < self.max_stamina) then
-                local s_pct = (self.stamina / self.max_stamina) * 10
-                local s_col = 11
-                if (self.exhausted) then s_col = 8 end
-                line(self.x - 1, self.y - 2, self.x + s_pct - 1, self.y - 2, s_col)
-            end
-
-            -- contextual action
-            if (self.contextual_action and game_state == 'move') then
-                print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
-            end
-
-        end
-    }
-    return char
-end
-
-function change_state(_char, next_state)
-    if (_char.states[_char.state][next_state] ~= nil) then
-        _char.state = next_state
-        _char.spri = 1
-    end
-end
-
-function get_input(_char)
-    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
-
-    if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
-        local collision_cell = mget(_char.cell_x - 1, _char.cell_y)
-        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
-            _char.dx = 0
-        else
-            _char.dx = -char.runspeed
-        end
-
-        _char:change_state('walk')
-        _char.flip = true
-        _char.last_direction = 0
-    elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) ) then
-        local collision_cell = mget(_char.cell_x + 1, _char.cell_y)
-        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
-            _char.dx = 0
-        else
-            _char.dx = char.runspeed
-        end
-
-        _char:change_state('walk')
-        _char.flip = false
-        _char.last_direction = 0.5
-    elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
-        local collision_cell = mget(_char.cell_x, _char.cell_y - 1)
-        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
-            _char.dy = 0
-        else
-            _char.dy = -char.runspeed
-        end
-
-        _char:change_state('walk')
-        _char.last_direction = 0.75
-    elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
-        local collision_cell = mget(_char.cell_x, _char.cell_y + 1)
-        if (fget(collision_cell) == 1 or npc_manager._[action_key]) then
-            _char.dy = 0
-        else
-            _char.dy = char.runspeed
-        end
-
-        _char:change_state('walk')
-        _char.last_direction = 0.25
-    end
-
-    if (btn(0) == btn(1)) then
-        _char.dx = 0 
-    end
-
-    if (btn(2) == btn(3)) then
-        _char.dy = 0 
-    end 
-
-    if (_char.dx == 0 and _char.dy == 0) then
-        _char:change_state('stand')
-    end
-
-    -- determine contextual action
-    _char.contextual_action = nil
-    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
-
-    -- talk / npcs
-    local npc_target = npc_manager._[action_key]
-    if (npc_target) then
-        _char.contextual_action = 'talk'
-    end
-
-    -- pickup items
-    local cell_item = item_map:get(_char.cell_x, _char.cell_y)
-    if (cell_item ~= nil) then
-        _char.contextual_action = 'pickup'
-    end
-
-    -- action
-    if (btnp(5)) then
-        -- check the action cell to see if we should do something different
-
-        -- item pickup
-        if (_char.contextual_action == 'pickup') then
-            local did_work = inventory:add(cell_item)
-            if (did_work) then
-                item_map:delete(_char.cell_x, _char.cell_y)
-            end
-
-            return
-        end
-
-        if (_char.contextual_action == 'talk') then
-            new_game_state = 'talk'
-            dialog_manager.current_npc = npc_target
-            return
-        end
-
-        -- otherwise, just bring up the menu
-        _char:menu()
-    end
-
-    -- run
-    if (btn(4) and (abs(_char.dx) > 0 or abs(_char.dy) > 0)) then
-        if (_char.stamina > 0 and _char.exhausted == false) then
-            _char.runspeed = 1.5
-
-            if (t % 8 == 0) then
-                add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
-                _char.stamina -= 1
-            end
-
-            if (_char.stamina <= 0) then
-                _char.runspeed = 1
-                _char.exhausted = true
-                _char.stamina = 0
-            end
-        end
-    else
-        _char.runspeed = 1
-        if (t % 32 == 0 and _char.stamina < _char.max_stamina) then
-            _char.stamina = min(_char.stamina + 1, _char.max_stamina)
-            if (_char.exhausted and _char.stamina > (_char.max_stamina / 2)) then
-                _char.exhausted = false
-            end 
-        end
-    end
-end
-
-function update_char(_char)
-    if (_char.pause) then
-        return
-    end
-
-    _char:get_input()
-
-    _char.y += _char.dy
-    _char.x += _char.dx
-
-    -- closest cell
-    _char.cell_x = round((_char.x + (3 * cos(_char.last_direction) - 1)) / 8)
-    _char.cell_y = round((_char.y + (3 * sin(_char.last_direction) - 1)) / 8)
-    _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
-    _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
-
-    -- animation
-    if (t % 4 == 0) then
-        _char.spri = ((_char.spri + 1) % #_char.animations[_char.state]) + 1
-    end
-
-    _char.spr = _char.animations[_char.state][_char.spri]
-end
--->8
 __gfx__
 00000000000330000000000000000900000000000000000008000080000000000000000000000000000000000000000005000050000000000000000000000000
 000000000003300000000000000099900000900000000cc08000000800004000004400000005000000000aa07777700005000050050000500000000000000000
@@ -795,14 +799,14 @@ bb9999bb000000000055555555555550eeeeeeee0077777007777770000000000000000000000000
 b099990b0000000000000555555555500ee1e1e00777776000777770000000000000000000000000000000000000000000000000000000000000000000000000
 00bbbb0000000000000005555555550001eeee000071710000071700000000000000000000000000000000000000000000000000000000000000000000000000
 0bb00bb000000000000555500005550000e00e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+10700400017004004010010004100100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01777400017774000411110004111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07174140071741400144111001441110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07174140071741400475411004754110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01744410017444100477711004777110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01411100011114000400710004007100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01001400014100000400010000007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

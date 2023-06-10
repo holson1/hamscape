@@ -96,5 +96,5 @@ function _draw()
         d:draw()
     end
 
-    debug()
+    --debug()
 end
