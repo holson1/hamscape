@@ -7,15 +7,22 @@ npc_blueprint = {
     spr=nil,
     dialog=nil,
     update = function(self)
-        -- -- walk randomly
-        -- if (t % 64 == 0) then
-        --     local dir = rnd({0, 0.25, 0.5, 0.75})
-        --     self.dx = cos(dir) * 0.25
-        --     self.dy = sin(dir) * 0.25
-        -- end
+        -- walk randomly
+        if (t % 64 == 0) then
+            if (rnd() > 0.7) then
+                local dir = rnd({0, 0.25, 0.5, 0.75})
+                self.dx = cos(dir) * 0.25
+                self.dy = sin(dir) * 0.25
+            else
+                self.dx = 0
+                self.dy = 0
+            end
+        end
 
-        -- self.x += self.dx
-        -- self.y += self.dy 
+        self.x += self.dx
+        self.y += self.dy
+
+        self.collision_component:update(self.x, self.y, self.x + 8, self.y + 8)
     end,
 }
 
@@ -62,7 +69,18 @@ npc_pig = {
     x = 208,
     y = 208,
     s = 084,
-    dialog = 'oink!'
+    dialog = {'oink!'}
+}
+
+npc_wizard = {
+    id='wizard',
+    x = 232,
+    y = 296,
+    s = 100,
+    dialog = {
+        'blast, my journey was',
+        'cut short by a bear!'
+    }
 }
 
 dialog_manager = {
@@ -82,7 +100,9 @@ dialog_manager = {
                 127,
                 7
             )
-            print(self.current_npc.dialog, cam.x + 18, cam.y + 113, 7)
+            for i,v in ipairs(self.current_npc.dialog) do
+                print(v, cam.x + 18, cam.y + 113 + (8 * (i - 1)), 7)
+            end
         end
     end
 }

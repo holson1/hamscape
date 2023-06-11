@@ -28,6 +28,7 @@ function _init()
     item_map:set(26, 29, items.crab)
 
     npc_manager:add(npc_pig)
+    npc_manager:add(npc_wizard)
     collision_manager:register_collider('test_box', 250, 250, 256, 283, collision_manager.collider_types.solid)
 end
 
