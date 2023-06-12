@@ -19,6 +19,17 @@ npc_blueprint = {
             end
         end
 
+        local test_collider = self.collision_component
+        test_collider.left += self.dx
+        test_collider.right += self.dx
+        test_collider.top += self.dy
+        test_collider.bottom += self.dy
+
+        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
+            self.dx = 0
+            self.dy = 0
+        end
+
         self.x += self.dx
         self.y += self.dy
 

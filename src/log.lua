@@ -19,10 +19,10 @@ function debug()
     vars = {
         't='..t,
         "at="..at,
-        "acx="..char.action_cell_x,
-        "acy="..char.action_cell_y,
-        "item="..item_s
+        "colliders="..collision_manager.collider_count
     }
+
+    collision_manager:draw_colliders()
 
     -- draw the log
     for i=count(_log)-log_l+1,count(_log) do
@@ -33,5 +33,4 @@ function debug()
         print(v,(cam.x)+8,(cam.y)+(i*8),15)
     end
 
-    collision_manager:draw_colliders()
 end

@@ -1,11 +1,13 @@
 collision_manager = {
     -- todo: quad tree to improve performance
     objects={},
+    collider_count=0,
     collider_types = {
         solid='solid',
         overlap='ovelap'
     },
 
+    -- current behavior: overwrite anything with the same id
     register_collider=function(self, id, left, top, right, bottom, type)
         local new_collider = {
             id=id,
@@ -31,13 +33,17 @@ collision_manager = {
             end
         }
 
-        add(self.objects, new_collider)
+        if (self.objects[id] == nil) then
+            self.collider_count += 1
+        end
+
+        self.objects[id] = new_collider
         return new_collider
     end,
 
     test_intersect=function(self, obj1, type)
-        for obj2 in all(self.objects) do
-            if (obj1.id ~= obj2.id) then
+        for id,obj2 in pairs(self.objects) do
+            if (obj1.id ~= id) then
                 if not(
                     obj1.left >= obj2.right or
                     obj1.right <= obj2.left or
@@ -50,7 +56,7 @@ collision_manager = {
     end,
 
     draw_colliders=function(self)
-        for obj in all(self.objects) do
+        for id,obj in pairs(self.objects) do
             obj:draw()
         end
     end
