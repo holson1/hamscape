@@ -80,6 +80,8 @@ function _init()
 
     npc_manager:add(npc_pig)
     npc_manager:add(npc_wizard)
+
+    music(0, 3000)
 end
 
 function _update()
