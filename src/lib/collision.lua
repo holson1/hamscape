@@ -4,24 +4,20 @@ collision_manager = {
     collider_count=0,
     collider_types = {
         solid='solid',
-        overlap='ovelap'
+        overlap='overlap'
     },
 
     -- current behavior: overwrite anything with the same id
-    register_collider=function(self, id, left, top, right, bottom, type)
+    register_collider=function(self, id, x, y, type)
         local new_collider = {
             id=id,
-            left=left,
-            top=top,
-            right=right,
-            bottom=bottom,
+            x=x,
+            y=y,
             type=type,
 
-            update=function(self, l, t, r, b)
-                self.left = l
-                self.right = r
-                self.top = t
-                self.bottom = b
+            update=function(self, x, y)
+                self.x = x
+                self.y = y
             end,
 
             check_intersect=function(self, other)
@@ -29,7 +25,7 @@ collision_manager = {
             end,
 
             draw=function(self)
-                rect(self.left, self.top, self.right, self.bottom, 8)
+                rect(self.x * 8, self.y * 8, (self.x * 8) + 8, (self.y * 8) + 8, 8)
             end
         }
 
@@ -44,11 +40,9 @@ collision_manager = {
     test_intersect=function(self, obj1, type)
         for id,obj2 in pairs(self.objects) do
             if (obj1.id ~= id) then
-                if not(
-                    obj1.left >= obj2.right or
-                    obj1.right <= obj2.left or
-                    obj1.top >= obj2.bottom or
-                    obj1.bottom <= obj2.top
+                if (
+                    obj1.x == obj2.x and
+                    obj1.y == obj2.y
                 ) then return true end
             end
         end

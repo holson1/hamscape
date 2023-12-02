@@ -2,38 +2,9 @@ npc_blueprint = {
     id=nil,
     x=nil,
     y=nil,
-    dx=0,
-    dy=0,
     spr=nil,
     dialog=nil,
     update = function(self)
-        -- walk randomly
-        if (t % 64 == 0) then
-            if (rnd() > 0.7) then
-                local dir = rnd({0, 0.25, 0.5, 0.75})
-                self.dx = cos(dir) * 0.25
-                self.dy = sin(dir) * 0.25
-            else
-                self.dx = 0
-                self.dy = 0
-            end
-        end
-
-        local test_collider = self.collision_component
-        test_collider.left += self.dx
-        test_collider.right += self.dx
-        test_collider.top += self.dy
-        test_collider.bottom += self.dy
-
-        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
-            self.dx = 0
-            self.dy = 0
-        end
-
-        self.x += self.dx
-        self.y += self.dy
-
-        self.collision_component:update(self.x, self.y, self.x + 8, self.y + 8)
     end,
 }
 
@@ -50,8 +21,6 @@ npc_manager = {
             p.id,
             p.x,
             p.y,
-            p.x + 8,
-            p.y + 8,
             collision_manager.collider_types.solid
         )
 
@@ -69,7 +38,7 @@ npc_manager = {
     -- TODO: only draw the npcs that are on screen
     draw_all=function(self)
         for k,v in pairs(self._) do
-            spr(v.s,v.x,v.y,1,1,v.flip)
+            spr(v.s,v.x*8,v.y*8,1,1,v.flip)
         end
     end
 }
@@ -77,41 +46,117 @@ npc_manager = {
 
 npc_pig = {
     id='farm_pig',
-    x = 208,
-    y = 208,
+    x = 26,
+    y = 26,
     s = 084,
     dialog = {'oink!'}
 }
 
 npc_wizard = {
     id='wizard',
-    x = 232,
-    y = 296,
+    x = 29,
+    y = 37,
     s = 100,
-    dialog = {
-        'blast, my journey was',
-        'cut short by a bear!'
-    }
+    script = function(self)
+        local dialog = {
+            {
+                'blast, my journey was',
+                'cut short by a bear!'
+            }
+        }
+        if (npc_cat.talked and not(npc_cat.fed)) then
+            dialog = {
+                {
+                    'oh, my cat is hungry?'
+                },
+                {
+                    'let me summon him a',
+                    'nice tuna fish.'
+                },
+                {
+                    '...'
+                },
+                {
+                    'there, that should make',
+                    'him happy for a little while.'
+                }
+            }
+            npc_cat.fed = true
+        end
+        return dialog
+    end
+}
+
+npc_cat = {
+    id='cat',
+    x=19,
+    y=22,
+    s = 101,
+    talked=false,
+    fed = false,
+    script = function(self)
+        if (self.fed) then
+            return {
+                {
+                    'thank you! *munch*',
+                    '(i must remember to bury the leftovers)'
+                }
+            }
+        else
+            self.talked=true
+            return {
+                {
+                    "that's right, i'm a cat.",
+                    "just like you~"
+                },
+                {
+                    "i'm also quite hungry."
+                },
+                {
+                    "can you tell my owner",
+                    "to summon me some food?"
+                },
+                {
+                    "he's a wizard",
+                    "...so he can do that."
+                }
+            }
+        end
+    end
 }
 
 dialog_manager = {
     current_npc=nil,
+    dialog_counter=1,
+    dialog=nil,
+    load=function(self)
+        self.dialog_counter=1
+        self.dialog=self.current_npc:script()
+    end,
     update = function(self)
-        if (btnp(4) or btnp(5)) then
+        if (btnp(4)) then
             self.current_npc = nil
             new_game_state = 'move'
+        end
+
+        if (btnp(5)) then
+            self.dialog_counter +=1
+            if (self.dialog_counter > #self.dialog) then
+                self.current_npc = nil
+                new_game_state = 'move'
+            end
         end
     end,
     draw = function(self)
         if (self.current_npc) then
             draw_menu_rect(
-                16,
-                111,
-                111,
+                8,
+                103,
+                119,
                 127,
                 7
             )
-            for i,v in ipairs(self.current_npc.dialog) do
+            for i,v in ipairs(self.dialog[self.dialog_counter]) do
                 print(v, cam.x + 18, cam.y + 113 + (8 * (i - 1)), 7)
             end
         end

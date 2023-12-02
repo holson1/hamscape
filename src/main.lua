@@ -32,6 +32,7 @@ function _init()
 
     npc_manager:add(npc_pig)
     npc_manager:add(npc_wizard)
+    npc_manager:add(npc_cat)
 
     music(0, 3000)
 end
@@ -82,10 +83,8 @@ function _update()
                 if (fget(new_cell) == 1) then
                     collision_manager:register_collider(
                         'map-'..i..'-'..j,
-                        i * 8,
-                        j * 8,
-                        (i + 1) * 8,
-                        (j + 1) * 8,
+                        i,
+                        j,
                         collision_manager.collider_types.solid
                     )
                 end

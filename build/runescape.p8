@@ -80,6 +80,7 @@ function _init()
 
     npc_manager:add(npc_pig)
     npc_manager:add(npc_wizard)
+    npc_manager:add(npc_cat)
 
     music(0, 3000)
 end
@@ -130,10 +131,8 @@ function _update()
                 if (fget(new_cell) == 1) then
                     collision_manager:register_collider(
                         'map-'..i..'-'..j,
-                        i * 8,
-                        j * 8,
-                        (i + 1) * 8,
-                        (j + 1) * 8,
+                        i,
+                        j,
                         collision_manager.collider_types.solid
                     )
                 end
@@ -368,38 +367,9 @@ npc_blueprint = {
     id=nil,
     x=nil,
     y=nil,
-    dx=0,
-    dy=0,
     spr=nil,
     dialog=nil,
     update = function(self)
-        -- walk randomly
-        if (t % 64 == 0) then
-            if (rnd() > 0.7) then
-                local dir = rnd({0, 0.25, 0.5, 0.75})
-                self.dx = cos(dir) * 0.25
-                self.dy = sin(dir) * 0.25
-            else
-                self.dx = 0
-                self.dy = 0
-            end
-        end
-
-        local test_collider = self.collision_component
-        test_collider.left += self.dx
-        test_collider.right += self.dx
-        test_collider.top += self.dy
-        test_collider.bottom += self.dy
-
-        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
-            self.dx = 0
-            self.dy = 0
-        end
-
-        self.x += self.dx
-        self.y += self.dy
-
-        self.collision_component:update(self.x, self.y, self.x + 8, self.y + 8)
     end,
 }
 
@@ -416,8 +386,6 @@ npc_manager = {
             p.id,
             p.x,
             p.y,
-            p.x + 8,
-            p.y + 8,
             collision_manager.collider_types.solid
         )
 
@@ -435,7 +403,7 @@ npc_manager = {
     -- TODO: only draw the npcs that are on screen
     draw_all=function(self)
         for k,v in pairs(self._) do
-            spr(v.s,v.x,v.y,1,1,v.flip)
+            spr(v.s,v.x*8,v.y*8,1,1,v.flip)
         end
     end
 }
@@ -443,41 +411,117 @@ npc_manager = {
 
 npc_pig = {
     id='farm_pig',
-    x = 208,
-    y = 208,
+    x = 26,
+    y = 26,
     s = 084,
     dialog = {'oink!'}
 }
 
 npc_wizard = {
     id='wizard',
-    x = 232,
-    y = 296,
+    x = 29,
+    y = 37,
     s = 100,
-    dialog = {
-        'blast, my journey was',
-        'cut short by a bear!'
-    }
+    script = function(self)
+        local dialog = {
+            {
+                'blast, my journey was',
+                'cut short by a bear!'
+            }
+        }
+        if (npc_cat.talked and not(npc_cat.fed)) then
+            dialog = {
+                {
+                    'oh, my cat is hungry?'
+                },
+                {
+                    'let me summon him a',
+                    'nice tuna fish.'
+                },
+                {
+                    '...'
+                },
+                {
+                    'there, that should make',
+                    'him happy for a little while.'
+                }
+            }
+            npc_cat.fed = true
+        end
+        return dialog
+    end
+}
+
+npc_cat = {
+    id='cat',
+    x=19,
+    y=22,
+    s = 101,
+    talked=false,
+    fed = false,
+    script = function(self)
+        if (self.fed) then
+            return {
+                {
+                    'thank you! *munch*',
+                    '(i must remember to bury the leftovers)'
+                }
+            }
+        else
+            self.talked=true
+            return {
+                {
+                    "that's right, i'm a cat.",
+                    "just like you~"
+                },
+                {
+                    "i'm also quite hungry."
+                },
+                {
+                    "can you tell my owner",
+                    "to summon me some food?"
+                },
+                {
+                    "he's a wizard",
+                    "...so he can do that."
+                }
+            }
+        end
+    end
 }
 
 dialog_manager = {
     current_npc=nil,
+    dialog_counter=1,
+    dialog=nil,
+    load=function(self)
+        self.dialog_counter=1
+        self.dialog=self.current_npc:script()
+    end,
     update = function(self)
-        if (btnp(4) or btnp(5)) then
+        if (btnp(4)) then
             self.current_npc = nil
             new_game_state = 'move'
+        end
+
+        if (btnp(5)) then
+            self.dialog_counter +=1
+            if (self.dialog_counter > #self.dialog) then
+                self.current_npc = nil
+                new_game_state = 'move'
+            end
         end
     end,
     draw = function(self)
         if (self.current_npc) then
             draw_menu_rect(
-                16,
-                111,
-                111,
+                8,
+                103,
+                119,
                 127,
                 7
             )
-            for i,v in ipairs(self.current_npc.dialog) do
+            for i,v in ipairs(self.dialog[self.dialog_counter]) do
                 print(v, cam.x + 18, cam.y + 113 + (8 * (i - 1)), 7)
             end
         end
@@ -524,24 +568,20 @@ collision_manager = {
     collider_count=0,
     collider_types = {
         solid='solid',
-        overlap='ovelap'
+        overlap='overlap'
     },
 
     -- current behavior: overwrite anything with the same id
-    register_collider=function(self, id, left, top, right, bottom, type)
+    register_collider=function(self, id, x, y, type)
         local new_collider = {
             id=id,
-            left=left,
-            top=top,
-            right=right,
-            bottom=bottom,
+            x=x,
+            y=y,
             type=type,
 
-            update=function(self, l, t, r, b)
-                self.left = l
-                self.right = r
-                self.top = t
-                self.bottom = b
+            update=function(self, x, y)
+                self.x = x
+                self.y = y
             end,
 
             check_intersect=function(self, other)
@@ -549,7 +589,7 @@ collision_manager = {
             end,
 
             draw=function(self)
-                rect(self.left, self.top, self.right, self.bottom, 8)
+                rect(self.x * 8, self.y * 8, (self.x * 8) + 8, (self.y * 8) + 8, 8)
             end
         }
 
@@ -564,11 +604,9 @@ collision_manager = {
     test_intersect=function(self, obj1, type)
         for id,obj2 in pairs(self.objects) do
             if (obj1.id ~= id) then
-                if not(
-                    obj1.left >= obj2.right or
-                    obj1.right <= obj2.left or
-                    obj1.top >= obj2.bottom or
-                    obj1.bottom <= obj2.top
+                if (
+                    obj1.x == obj2.x and
+                    obj1.y == obj2.y
                 ) then return true end
             end
         end
@@ -647,7 +685,7 @@ function debug()
         "colliders="..collision_manager.collider_count
     }
 
-    collision_manager:draw_colliders()
+    --collision_manager:draw_colliders()
 
     -- draw the log
     for i=count(_log)-log_l+1,count(_log) do
@@ -665,18 +703,22 @@ function init_char()
     local char={
         x=200,
         y=240,
-        dx=0,
-        dy=0,
         runspeed=1,
         spr=004,
         spri=1,
         state='stand',
         flip=false,
+        facing_back=false,
         cell_x=0,
         cell_y=0,
+        next_move=nil,
+        is_moving=false,
+        move_direction=0,
+        facing=0,
         action_cell_x=0,
         action_cell_y=0,
         collision_component=nil,
+        test_collider=nil,
         last_direction=0,
         health=10,
         max_health=10,
@@ -686,14 +728,24 @@ function init_char()
         states={
             ['stand']={
                 ['walk']=1,
+                ['run']=1
             },
             ['walk']={
                 ['stand']=1,
+                ['run']=1
+            },
+            ['run']={
+                ['stand']=1,
+                ['walk']=1
             }
         },
         animations={
             ['stand']={096},
-            ['walk']={096, 096, 097, 097},
+            ['stand_back']={098},
+            ['walk']={096,096,097,097},
+            ['walk_back']={098,098,099,099},
+            ['run']={096,096,097,097},
+            ['run_back']={098,098,099,099}
         },
         change_state=change_state,
         contextual_action=nil,
@@ -709,6 +761,7 @@ function init_char()
         end,
 
         draw=function(self)
+            rectfill(self.x, self.y, self.x+7, self.y+7, 0)
             spr(self.spr,self.x,self.y,1,1,self.flip)
 
             -- stamina
@@ -724,15 +777,19 @@ function init_char()
                 print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
             end
 
+            -- debug collision
+            -- rect((self.collision_component.x * 8), (self.collision_component.y *8), (self.collision_component.x *8)+ 8, (self.collision_component.y * 8)+8,8)
+            -- if (self.test_collider ~= nil) then
+            --     rect(self.test_collider.x * 8, self.test_collider.y * 8, (self.test_collider.x * 8) + 8, (self.test_collider.y * 8) + 8, 9)
+            -- end
+
         end
     }
 
     char.collision_component = collision_manager:register_collider(
         'char',
-        char.x,
-        char.y,
-        char.x + 8,
-        char.y + 8,
+        char.cell_x,
+        char.cell_y,
         collision_manager.collider_types.solid
     )
 
@@ -740,86 +797,84 @@ function init_char()
 end
 
 function change_state(_char, next_state)
-    if (_char.states[_char.state][next_state] ~= nil) then
+    if (next_state ~= _char.state and _char.states[_char.state][next_state] ~= nil) then
         _char.state = next_state
         _char.spri = 1
     end
 end
 
-function get_input(_char)
-    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+function update_char(_char)
+    if (_char.pause) then
+        return
+    end
 
-    -- if char collision box would overlap with another collision box, stop
+    -- get the active cell
+    _char.cell_x = flr(_char.x / 8)
+    _char.cell_y = flr(_char.y / 8)
 
-    local test_collider = _char.collision_component
+    next_move = nil
 
+    -- stamina recovery
+    if (t % 32 == 0 and _char.state ~= 'run' and _char.stamina < _char.max_stamina) then
+        _char.stamina = min(_char.stamina + 1, _char.max_stamina)
+        if (_char.exhausted and _char.stamina > (_char.max_stamina / 2)) then
+            _char.exhausted = false
+        end 
+    end 
+
+    -- get input for the given frame
     if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
-        test_collider.left -= _char.runspeed
-        test_collider.right -= _char.runspeed
-
-        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
-            _char.dx = 0
-        else
-            _char.dx = -_char.runspeed
-        end
-
-        _char:change_state('walk')
-        _char.flip = true
+        next_move = 0
         _char.last_direction = 0
-    elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) ) then
-        test_collider.left += _char.runspeed
-        test_collider.right += _char.runspeed
-
-        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
-            _char.dx = 0
-        else
-            _char.dx = _char.runspeed
-        end
-
-        _char:change_state('walk')
-        _char.flip = false
+    elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3))) then
+        next_move = 0.5
         _char.last_direction = 0.5
     elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
-        test_collider.top -= _char.runspeed
-        test_collider.bottom -= _char.runspeed
-
-        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
-            _char.dy = 0
-        else
-            _char.dy = -_char.runspeed
-        end
-
-        _char:change_state('walk')
+        next_move = 0.75
         _char.last_direction = 0.75
     elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
-        test_collider.top += _char.runspeed
-        test_collider.bottom += _char.runspeed
-
-        if (collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid)) then
-            _char.dy = 0
-        else
-            _char.dy = _char.runspeed
-        end
-
-        _char:change_state('walk')
+        next_move = 0.25
         _char.last_direction = 0.25
     end
 
-    if (btn(0) == btn(1)) then
-        _char.dx = 0 
+    next_state = _char.state
+
+    -- if we're moving, we shouldn't change direction until we've landed squarely on a cell
+    if (_char.is_moving) then
+        
+        -- move to cell
+        _char.x -= cos(_char.move_direction) * _char.runspeed
+        _char.y -= sin(_char.move_direction) * _char.runspeed
+
+        if (_char.state == 'run') then
+            if (t % 8 == 0) then
+                add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
+                _char.stamina -= 2
+            end
+
+            if (_char.stamina <= 0) then
+                _char.runspeed = 1
+                _char.exhausted = true
+                _char.stamina = 0
+                next_state = 'walk'
+            end
+        end
+
+        if ((_char.x % 8 <= 0.2 or _char.x % 8 >= 7.8) and (_char.y % 8 <= 0.2 or _char.y % 8 >= 7.8)) then
+            _char.x = round(_char.x)
+            _char.y = round(_char.y)
+            _char.is_moving = false
+
+            _char.action_cell_x = (_char.x / 8) - cos(_char.last_direction)
+            _char.action_cell_y = (_char.y / 8) - sin(_char.last_direction)
+        end
     end
 
-    if (btn(2) == btn(3)) then
-        _char.dy = 0 
-    end 
+    _char.cell_x = flr(_char.x / 8)
+    _char.cell_y = flr(_char.y / 8)
 
-    if (_char.dx == 0 and _char.dy == 0) then
-        _char:change_state('stand')
-    end
-
-    -- determine contextual action
     _char.contextual_action = nil
-    local action_key = (_char.action_cell_x * 8) .. '-' .. (_char.action_cell_y * 8)
+    local action_key = (_char.action_cell_x) .. '-' .. (_char.action_cell_y)
 
     -- talk / npcs
     local npc_target = npc_manager._[action_key]
@@ -850,6 +905,7 @@ function get_input(_char)
         if (_char.contextual_action == 'talk') then
             new_game_state = 'talk'
             dialog_manager.current_npc = npc_target
+            dialog_manager:load()
             return
         end
 
@@ -857,77 +913,91 @@ function get_input(_char)
         _char:menu()
     end
 
-    -- run
-    if (btn(4) and (abs(_char.dx) > 0 or abs(_char.dy) > 0)) then
-        if (_char.stamina > 0 and _char.exhausted == false) then
-            _char.runspeed = 1.5
+    -- if I'm on a cell and there's an input, read the next direction and get ready to move next frame
+    if (_char.is_moving == false) then
+        if (next_move ~= nil) then
 
-            if (t % 8 == 0) then
-                add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
-                _char.stamina -= 1
+            -- change facing direction
+            _char.facing = next_move
+            if (next_move == 0) then
+                _char.flip = true
+                _char.facing_back = false
+            elseif (next_move == 0.25) then
+                _char.facing_back = false
+            elseif (next_move == 0.5) then
+                _char.flip = false
+                _char.facing_back = false
+            elseif (next_move == 0.75) then
+                _char.facing_back = true
             end
 
-            if (_char.stamina <= 0) then
-                _char.runspeed = 1
-                _char.exhausted = true
-                _char.stamina = 0
+            _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
+            _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
+
+            -- check to see if the next cell is free
+            _char.test_collider = {id='char', x=0, y=0}
+            _char.test_collider.x = _char.cell_x - cos(next_move)
+            _char.test_collider.y = _char.cell_y - sin(next_move)
+
+            if (collision_manager:test_intersect(_char.test_collider, collision_manager.collider_types.solid)) then
+                return
             end
-        end
-    else
-        _char.runspeed = 1
-        if (t % 32 == 0 and _char.stamina < _char.max_stamina) then
-            _char.stamina = min(_char.stamina + 1, _char.max_stamina)
-            if (_char.exhausted and _char.stamina > (_char.max_stamina / 2)) then
-                _char.exhausted = false
-            end 
+
+            -- if it is...
+            next_state = 'walk'
+
+            _char.is_moving = true
+            _char.move_direction = next_move
+            _char.runspeed = 1
+
+            if (btn(4)) then
+                if (_char.stamina > 0 and _char.exhausted == false) then
+                    _char.runspeed = 2
+                    next_state = 'run'
+                end
+            end
+        else
+            next_state = 'stand'
         end
     end
-end
 
-function update_char(_char)
-    if (_char.pause) then
-        return
+    -- update state
+    _char:change_state(next_state)
+
+    _char.collision_component:update(_char.cell_x, _char.cell_y)
+
+    -- _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
+    -- _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
+
+    -- animation, and update sprite
+    current_anim = _char.state
+    if (_char.facing_back == true) then
+        current_anim = _char.state .. '_back'
     end
-
-    _char:get_input()
-
-
-    _char.y += _char.dy
-    _char.x += _char.dx
-
-    _char.collision_component:update(_char.x, _char.y, _char.x + 8, _char.y + 8)
-
-    -- closest cell
-    _char.cell_x = round((_char.x + (3 * cos(_char.last_direction) - 1)) / 8)
-    _char.cell_y = round((_char.y + (3 * sin(_char.last_direction) - 1)) / 8)
-    _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
-    _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
-
-    -- animation
     if (t % 4 == 0) then
-        _char.spri = ((_char.spri + 1) % #_char.animations[_char.state]) + 1
+        _char.spri = ((_char.spri + 1) % #_char.animations[current_anim]) + 1
     end
 
-    _char.spr = _char.animations[_char.state][_char.spri]
+    _char.spr = _char.animations[current_anim][_char.spri]
 end
 -->8
 __gfx__
 00000000000330000000000000000900000000000000000008000080000000000000000000000000000000000000000005000050000000000000000000000000
 000000000003300000000000000099900000900000000cc08000000800004000004400000005000000000aa07777700005000050050000500000000000000000
-00700700003033000003300000009790000090000000c0c0808888080004400000440000000000500000aaaa7888870000555500050000500000000000000000
-0007700000333300033333300000290000099900000cccc00808808000044400000004400500000000a0aaaa7887887005555550055555500000000000000000
-000770000330333033003333000200000099099000cccc000888888000444400044404440005000000000aa00788787005055050050000500000000000000000
-00700700030333303033333300200000099009900cccc000888888880044444004440444000005000aa000000788787005055050055555500000000000000000
-0000000033000333333333300200000009900990ccc00000088888800444444004440000005000000aa00a000078887005000050055005500000000000000000
-00000000303333333333300300000000009999000c00000080800808044444400000000000000000000000000007770000000000055555500000000000000000
-000000003003333303333330000004400000900000eeee0000800800000000770477700000007000000040000666666006666660000000040000000000000000
-00000000033333300000000000404444000999000eeeeee00808080800000777040007000047770000777770611111166cccccc6000000e40ddddd0000000000
-0000000000000000000440000004044400090900eeeeeeee8088808000007770040000700004770007004007611111166cccccc60000044e006666d000000000
-0000000000044000004440000040440400990990e0ee00ee088888080607770004000007000400000000400066666666666666660000540e0066600000000000
-00000000000444000004400004444040009009900ee0e0ee008888800667700000400007000040000000400066666666666666660004400e0066600000000000
-0000000000044000000440004004040009900990e0e000ee880888800066000000400070000040000000400006666660066666600054000e0006000000000000
-000000000004400000044000400440000990999000000ee000808888060660000040670000000400000040000666666006666660454000000000600000000000
-00000000000440000004400004440000009999000000ee0008080088600000000040000000000400000040000066660000666600040000000000000000000000
+00700700003033000003300000009790000090000000c0c0808888080004400000440000000000500000aaaa78888700005555000500005000000000000a9000
+0007700000333300033333300000290000099900000cccc00808808000044400000004400500000000a0aaaa788788700555555005555550000000000a999a90
+000770000330333033003333000200000099099000cccc000888888000444400044404440005000000000aa0078878700505505005000050000000009aa44999
+00700700030333303033333300200000099009900cccc000888888880044444004440444000005000aa0000007887870050550500555555000000000a9499989
+0000000033000333333333300200000009900990ccc00000088888800444444004440000005000000aa00a0000788870050000500550055000000000999a9a98
+00000000303333333333300300000000009999000c000000808008080444444000000000000000000000000000077700000000000555555000000000a99998a4
+000000003003333303333330000004400000900000eeee000080080000000077047770000000700000004000066666600666666000000004000000000a9a8440
+00000000033333300000000000404444000999000eeeeee00808080800000777040007000047770000777770611111166cccccc6000000e40ddddd0000044000
+0000000000000000000440000004044400090900eeeeeeee8088808000007770040000700004770007004007611111166cccccc60000044e006666d000044000
+0000000000044000004440000040440400990990e0ee00ee088888080607770004000007000400000000400066666666666666660000540e0066600000444000
+00000000000444000004400004444040009009900ee0e0ee008888800667700000400007000040000000400066666666666666660004400e0066600000044000
+0000000000044000000440004004040009900990e0e000ee880888800066000000400070000040000000400006666660066666600054000e0006000000044000
+000000000004400000044000400440000990999000000ee000808888060660000040670000000400000040000666666006666660454000000000600000044000
+00000000000440000004400004440000009999000000ee0008080088600000000040000000000400000040000066660000666600040000000000000000044000
 000000b00000003000bb3b00000000a000000a000000000000000444000000000000000000003000000000000000000000000000000000000000000000000000
 00000b33000099300b3b33b000000a0000000af00000000000004f4400bb00300b00300000000300000000000000000004a000f0000000000000000000000000
 0000b33000099993b3b333b3000a0fa0000a0aaa00000000000444f40b00b030000000b0000088800000000008000080004a00a0000000000000000000000000
