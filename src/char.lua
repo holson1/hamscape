@@ -73,6 +73,7 @@ function init_char()
 
             -- contextual action
             if (self.contextual_action and game_state == 'move') then
+                rectfill(self.x + 9, self.y + 9, self.x + 50, self.y + 15, 1)
                 print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
             end
 
@@ -178,7 +179,11 @@ function update_char(_char)
     -- talk / npcs
     local npc_target = npc_manager._[action_key]
     if (npc_target) then
-        _char.contextual_action = 'talk'
+        if (npc_target.hostile) then
+            _char.contextual_action = 'fight'
+        elseif (npc_target.script ~= nil) then
+            _char.contextual_action = 'talk'
+        end
     end
 
     -- pickup items
@@ -205,6 +210,12 @@ function update_char(_char)
             new_game_state = 'talk'
             dialog_manager.current_npc = npc_target
             dialog_manager:load()
+            return
+        end
+
+        if (_char.contextual_action == 'fight') then
+            new_game_state = 'battle'
+            battle_manager:load(npc_target)
             return
         end
 

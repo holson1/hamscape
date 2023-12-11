@@ -1,6 +1,491 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
+--src/battle.lua
+battle_manager = {
+    turn=0,
+    enemy=nil,
+    action_cd=0,
+    selection=1,
+    enemy_dmg=0,
+    player_dmg=0,
+    enemy_dmg_timer=0,
+    player_dmg_timer=0,
+    animation_timer=0,
+    moves={
+        {
+            name='claw',
+            cd=40,
+            current_cd=0,
+            use=function()
+                sfx(42)
+                battle_manager.animation_timer=10
+                battle_manager:damage_enemy(1)
+            end
+        },
+        {
+            name='bite',
+            cd=80,
+            current_cd=0,
+            use=function()
+                sfx(40)
+                battle_manager:damage_enemy(2)
+            end
+        },
+        {
+            name='run',
+            cd=60,
+            current_cd=0,
+            use=function()
+                if rnd(1) > 0.5 then
+                    battle_manager.enemy = nil
+                    new_game_state = 'move'
+                end
+            end
+        }
+    },
+    load=function(self, enemy)
+        self.enemy = enemy
+        self.turn=0
+    end,
+    update = function(self)
+        self.player_dmg_timer = max(0, self.player_dmg_timer - 1)
+        self.enemy_dmg_timer = max(0, self.enemy_dmg_timer - 1)
+        self.animation_timer = max(0, self.animation_timer - 1)
+
+        if (self.animation_timer > 0) then
+            if (abs(char.x - self.enemy.x) > 2 or abs(char.y - self.enemy.y) > 2) then
+                char.x -= (char.x - self.enemy.x) / 2
+                char.y -= (char.y - self.enemy.y) / 2
+            end
+        else
+            char.x = char.cell_x
+            char.y = char.cell_y
+        end
+
+        -- health check step
+        if (self.enemy.health <= 0) then
+            sfx(44)
+            add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(3), 25, 4, 0.2, 7)
+            add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(3), 25, 3, 0.2, 7)
+            add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(4), 25, 2, 0.2, 7)
+            add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(3), 25, 4, 0.2, 7)
+            add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(4), 25, 4, 0.1, 9)
+            add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(3), 25, 3, 0.1, 8)
+            add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(3), 25, 2, 0.1, 9)
+            add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(3), 25, 4, 0.1, 8)
+            -- destroy the reference to the enemy
+            local key = self.enemy.cell_x .. '-' .. self.enemy.cell_y
+            npc_manager:delete(key)
+            self.enemy = nil
+
+            new_game_state = 'move'
+            return
+        end
+
+        -- cooldown step
+        for move in all(self.moves) do
+            if (move.current_cd > 0) then
+                move.current_cd -= 1
+            end
+        end
+
+        if (self.action_cd > 0) then
+            self.action_cd -= 1
+            return
+        end
+
+        if (btnp(2)) then
+            self.selection = max(self.selection - 1, 1)
+        elseif (btnp(3)) then
+            self.selection = min(self.selection + 1, #self.moves)
+        end
+
+        if (btnp(5)) then
+            local move = self.moves[self.selection]
+            if (move.current_cd == 0) then
+                self.action_cd = 10
+                move.current_cd = move.cd
+                move.use(self.enemy)
+            end
+        end
+    end,
+
+    damage_enemy = function(self, dmg)
+        self.enemy.health -= dmg
+        self.enemy_dmg = dmg
+        self.enemy_dmg_timer = 10
+    end,
+
+    draw = function(self)
+        print('health: ' .. char.health, cam.x, cam.y, 8)
+        print('enemy: ' .. self.enemy.health, cam.x, cam.y + 8, 8)
+
+        draw_menu_rect(
+            40,
+            80,
+            88,
+            108,
+            7
+        )
+
+        for i,move in ipairs(self.moves) do
+            local move_color = 7
+            if (move.current_cd ~= 0) then
+                move_color = 6
+
+                -- 86
+                local cd_pct = (move.current_cd / move.cd)
+                local bar = ((86 - 48) * cd_pct) + 48
+
+                rectfill(cam.x + 48, cam.y + 76 + (i*6), cam.x + bar, cam.y + 80 + (i*6), 1)
+            end
+
+            print(move.name, cam.x + 48, cam.y + 76 + (i*6), move_color)
+        end
+
+        if (self.action_cd == 0) then
+            print('>', cam.x + 42, cam.y + 76 + (self.selection * 6), 7)
+        end
+
+        if (self.enemy_dmg_timer > 0) then
+            circfill(self.enemy.x + 4, self.enemy.y - 4, 3, 8)
+            print(self.enemy_dmg, self.enemy.x + 3, self.enemy.y - 6, 7)
+        end
+        if (self.player_dmg_timer > 0) then
+            circfill(char.x + 4, char.y - 4, 3, 8)
+            print(self.player_dmg, char.x + 3, char.y - 6, 7)
+        end
+    end
+}
+-->8
+--src/char.lua
+function init_char()
+    local char={
+        x=200,
+        y=240,
+        runspeed=1,
+        spr=004,
+        spri=1,
+        state='stand',
+        flip=false,
+        facing_back=false,
+        cell_x=0,
+        cell_y=0,
+        next_move=nil,
+        is_moving=false,
+        move_direction=0,
+        facing=0,
+        action_cell_x=0,
+        action_cell_y=0,
+        collision_component=nil,
+        test_collider=nil,
+        last_direction=0,
+        health=10,
+        max_health=10,
+        stamina=20,
+        max_stamina=20,
+        exhausted=false,
+        states={
+            ['stand']={
+                ['walk']=1,
+                ['run']=1
+            },
+            ['walk']={
+                ['stand']=1,
+                ['run']=1
+            },
+            ['run']={
+                ['stand']=1,
+                ['walk']=1
+            }
+        },
+        animations={
+            ['stand']={096},
+            ['stand_back']={098},
+            ['walk']={096,096,097,097},
+            ['walk_back']={098,098,099,099},
+            ['run']={096,096,097,097},
+            ['run_back']={098,098,099,099}
+        },
+        change_state=change_state,
+        contextual_action=nil,
+        get_input=get_input,
+        update=update_char,
+        menu=function(self)
+            -- bring up pause / item menu
+            new_game_state = 'menu'
+        end,
+        action=function(self)
+            -- talk / read
+            new_game_state = 'menu'
+        end,
+
+        draw=function(self)
+            rectfill(self.x, self.y, self.x+7, self.y+7, 0)
+            spr(self.spr,self.x,self.y,1,1,self.flip)
+
+            -- stamina
+            if (self.stamina < self.max_stamina) then
+                local s_pct = (self.stamina / self.max_stamina) * 10
+                local s_col = 11
+                if (self.exhausted) then s_col = 8 end
+                line(self.x - 1, self.y - 2, self.x + s_pct - 1, self.y - 2, s_col)
+            end
+
+            -- contextual action
+            if (self.contextual_action and game_state == 'move') then
+                rectfill(self.x + 9, self.y + 9, self.x + 50, self.y + 15, 1)
+                print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
+            end
+
+            -- debug collision
+            -- rect((self.collision_component.x * 8), (self.collision_component.y *8), (self.collision_component.x *8)+ 8, (self.collision_component.y * 8)+8,8)
+            -- if (self.test_collider ~= nil) then
+            --     rect(self.test_collider.x * 8, self.test_collider.y * 8, (self.test_collider.x * 8) + 8, (self.test_collider.y * 8) + 8, 9)
+            -- end
+
+        end
+    }
+
+    char.collision_component = collision_manager:register_collider(
+        'char',
+        char.cell_x,
+        char.cell_y,
+        collision_manager.collider_types.solid
+    )
+
+    return char
+end
+
+function change_state(_char, next_state)
+    if (next_state ~= _char.state and _char.states[_char.state][next_state] ~= nil) then
+        _char.state = next_state
+        _char.spri = 1
+    end
+end
+
+function update_char(_char)
+    if (_char.pause) then
+        return
+    end
+
+    -- get the active cell
+    _char.cell_x = flr(_char.x / 8)
+    _char.cell_y = flr(_char.y / 8)
+
+    next_move = nil
+
+    -- stamina recovery
+    if (t % 32 == 0 and _char.state ~= 'run' and _char.stamina < _char.max_stamina) then
+        _char.stamina = min(_char.stamina + 1, _char.max_stamina)
+        if (_char.exhausted and _char.stamina > (_char.max_stamina / 2)) then
+            _char.exhausted = false
+        end 
+    end 
+
+    -- get input for the given frame
+    if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
+        next_move = 0
+        _char.last_direction = 0
+    elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3))) then
+        next_move = 0.5
+        _char.last_direction = 0.5
+    elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
+        next_move = 0.75
+        _char.last_direction = 0.75
+    elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
+        next_move = 0.25
+        _char.last_direction = 0.25
+    end
+
+    next_state = _char.state
+
+    -- if we're moving, we shouldn't change direction until we've landed squarely on a cell
+    if (_char.is_moving) then
+        
+        -- move to cell
+        _char.x -= cos(_char.move_direction) * _char.runspeed
+        _char.y -= sin(_char.move_direction) * _char.runspeed
+
+        if (_char.state == 'run') then
+            if (t % 8 == 0) then
+                add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
+                _char.stamina -= 2
+            end
+
+            if (_char.stamina <= 0) then
+                _char.runspeed = 1
+                _char.exhausted = true
+                _char.stamina = 0
+                next_state = 'walk'
+            end
+        end
+
+        if ((_char.x % 8 <= 0.2 or _char.x % 8 >= 7.8) and (_char.y % 8 <= 0.2 or _char.y % 8 >= 7.8)) then
+            _char.x = round(_char.x)
+            _char.y = round(_char.y)
+            _char.is_moving = false
+
+            _char.action_cell_x = (_char.x / 8) - cos(_char.last_direction)
+            _char.action_cell_y = (_char.y / 8) - sin(_char.last_direction)
+        end
+    end
+
+    _char.cell_x = flr(_char.x / 8)
+    _char.cell_y = flr(_char.y / 8)
+
+    _char.contextual_action = nil
+    local action_key = (_char.action_cell_x) .. '-' .. (_char.action_cell_y)
+
+    -- talk / npcs
+    local npc_target = npc_manager._[action_key]
+    if (npc_target) then
+        if (npc_target.hostile) then
+            _char.contextual_action = 'fight'
+        elseif (npc_target.script ~= nil) then
+            _char.contextual_action = 'talk'
+        end
+    end
+
+    -- pickup items
+    local cell_item = item_map:get(_char.cell_x, _char.cell_y)
+    if (cell_item ~= nil) then
+        _char.contextual_action = 'pickup'
+    end
+
+    -- action
+    if (btnp(5)) then
+        -- check the action cell to see if we should do something different
+
+        -- item pickup
+        if (_char.contextual_action == 'pickup') then
+            local did_work = inventory:add(cell_item)
+            if (did_work) then
+                item_map:delete(_char.cell_x, _char.cell_y)
+            end
+
+            return
+        end
+
+        if (_char.contextual_action == 'talk') then
+            new_game_state = 'talk'
+            dialog_manager.current_npc = npc_target
+            dialog_manager:load()
+            return
+        end
+
+        if (_char.contextual_action == 'fight') then
+            new_game_state = 'battle'
+            battle_manager:load(npc_target)
+            return
+        end
+
+        -- otherwise, just bring up the menu
+        _char:menu()
+    end
+
+    -- if I'm on a cell and there's an input, read the next direction and get ready to move next frame
+    if (_char.is_moving == false) then
+        if (next_move ~= nil) then
+
+            -- change facing direction
+            _char.facing = next_move
+            if (next_move == 0) then
+                _char.flip = true
+                _char.facing_back = false
+            elseif (next_move == 0.25) then
+                _char.facing_back = false
+            elseif (next_move == 0.5) then
+                _char.flip = false
+                _char.facing_back = false
+            elseif (next_move == 0.75) then
+                _char.facing_back = true
+            end
+
+            _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
+            _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
+
+            -- check to see if the next cell is free
+            _char.test_collider = {id='char', x=0, y=0}
+            _char.test_collider.x = _char.cell_x - cos(next_move)
+            _char.test_collider.y = _char.cell_y - sin(next_move)
+
+            if (collision_manager:test_intersect(_char.test_collider, collision_manager.collider_types.solid)) then
+                return
+            end
+
+            -- if it is...
+            next_state = 'walk'
+
+            _char.is_moving = true
+            _char.move_direction = next_move
+            _char.runspeed = 1
+
+            if (btn(4)) then
+                if (_char.stamina > 0 and _char.exhausted == false) then
+                    _char.runspeed = 2
+                    next_state = 'run'
+                end
+            end
+        else
+            next_state = 'stand'
+        end
+    end
+
+    -- update state
+    _char:change_state(next_state)
+
+    _char.collision_component:update(_char.cell_x, _char.cell_y)
+
+    -- _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
+    -- _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
+
+    -- animation, and update sprite
+    current_anim = _char.state
+    if (_char.facing_back == true) then
+        current_anim = _char.state .. '_back'
+    end
+    if (t % 4 == 0) then
+        _char.spri = ((_char.spri + 1) % #_char.animations[current_anim]) + 1
+    end
+
+    _char.spr = _char.animations[current_anim][_char.spri]
+end
+-->8
+--src/inventory.lua
+inventory = {
+    rows=5,
+    cols=5,
+    items = {
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+    },
+    add = function(self, item)
+        -- add to the first free space
+        for i=1,self.rows do
+            for j=1,self.cols do
+                if (self.items[i][j] == nil) then
+                   self.items[i][j] = item
+                   return true 
+                end
+            end
+        end
+        return false
+    end,
+    drop = function(self, x, y)
+    end,
+    remove = function(self, x, y)
+    end
+}
+-->8
 --src/items.lua
 items = {}
 
@@ -45,6 +530,180 @@ item_map = {
     end
 }
 -->8
+--src/lib/collision.lua
+collision_manager = {
+    -- todo: quad tree to improve performance
+    objects={},
+    collider_count=0,
+    collider_types = {
+        solid='solid',
+        overlap='overlap'
+    },
+
+    -- current behavior: overwrite anything with the same id
+    register_collider=function(self, id, x, y, type)
+        local new_collider = {
+            id=id,
+            x=x,
+            y=y,
+            type=type,
+
+            update=function(self, x, y)
+                self.x = x
+                self.y = y
+            end,
+
+            check_intersect=function(self, other)
+                return false
+            end,
+
+            draw=function(self)
+                rect(self.x * 8, self.y * 8, (self.x * 8) + 8, (self.y * 8) + 8, 8)
+            end
+        }
+
+        if (self.objects[id] == nil) then
+            self.collider_count += 1
+        end
+
+        self.objects[id] = new_collider
+        return new_collider
+    end,
+
+    delete_collider=function(self,id)
+        self.objects[id] = nil
+    end,
+
+    test_intersect=function(self, obj1, type)
+        for id,obj2 in pairs(self.objects) do
+            if (obj1.id ~= id) then
+                if (
+                    obj1.x == obj2.x and
+                    obj1.y == obj2.y
+                ) then return true end
+            end
+        end
+        return false
+    end,
+
+    draw_colliders=function(self)
+        for id,obj in pairs(self.objects) do
+            obj:draw()
+        end
+    end
+}
+
+-->8
+--src/lib/dust.lua
+function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
+    add(dust, {
+    fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=8,grav=_g,draw=function(self)
+    circfill(self.x,self.y,self.rad,self.col)
+    end,update=function(self)
+    self.x+=self.dx self.y+=self.dy
+    self.dy+=self.grav self.rad*=0.9 self.life-=1
+    if type(self.fade)=="table"then self.col=self.fade[flr(#self.fade*(self.life/self.orig_life))+1]else self.col=self.fade end
+    if self.life<0then del(dust,self)end end})
+end
+-->8
+--src/lib/group.lua
+function new_group(bp)
+    return {
+        _={},
+        bp=bp,
+        
+        new=function(self,p)
+            for k,v in pairs(bp) do
+                if v!=nil then
+                    p[k]=v
+                end
+            end
+            p.alive=true
+            add(self._,p)
+        end,
+           
+        update=function(self)
+            for i,v in ipairs(self._) do
+                v:update()
+                if v.alive==false then
+                del(self._,self._[i])
+                end
+            end
+        end,
+        
+        draw=function(self)
+            for v in all(self._) do
+                spr(v.s,v.x,v.y,1,1,v.flip)
+            end
+        end
+    }
+end
+-->8
+--src/lib/util.lua
+function rndi(min,max)
+    return flr(rnd(max - min)) + min
+end
+
+function coord_match(a,b)
+    return a[1] == b[1] and a[2] == b[2]
+end
+
+function in_bounds(a,b)
+    return a > 0 and a < MAP_SIZE + 1 and b > 0 and b < MAP_SIZE + 1
+end
+
+function round(x)
+    if ((x - flr(x)) >= 0.5) then
+        return ceil(x)
+    else
+        return flr(x)
+    end
+end
+
+function print_centered(s, x1, x2, y, col)
+    local str_w = #s * 2
+    local center_point = ceil((x2 - x1) / 2) + x1
+    print(s, cam.x + (center_point - str_w), cam.y + y, col)
+end
+-->8
+--src/log.lua
+_log={}
+log_l=4
+for i=1,log_l do
+    add(_log,'')
+end
+
+function log(str)
+    add(_log,str)
+end
+   
+function debug()
+    local current_item = item_map:get(char.action_cell_x, char.action_cell_y)
+    local item_s = ''
+    if (current_item ~= nil) then
+        item_s = current_item.name
+    end
+
+
+    vars = {
+        't='..t,
+        "at="..at,
+        "colliders="..collision_manager.collider_count
+    }
+
+    --collision_manager:draw_colliders()
+
+    -- draw the log
+    for i=count(_log)-log_l+1,count(_log) do
+        add(vars,'> '.._log[i])
+    end
+
+    for i,v in ipairs(vars) do
+        print(v,(cam.x)+8,(cam.y)+(i*8),15)
+    end
+
+end
+-->8
 --src/main.lua
 -- sword 
 
@@ -81,8 +740,9 @@ function _init()
     npc_manager:add(npc_pig)
     npc_manager:add(npc_wizard)
     npc_manager:add(npc_cat)
+    npc_manager:add(enemy_gob)
 
-    music(0, 3000)
+    --music(0, 3000)
 end
 
 function _update()
@@ -104,6 +764,10 @@ function _update()
 
     if (game_state == 'talk') then
         dialog_manager:update()
+    end
+
+    if (game_state == 'battle') then
+        battle_manager:update()
     end
 
     cam.x = max(char.x - 64, 0)
@@ -160,45 +824,16 @@ function _draw()
         dialog_manager:draw()
     end
 
+    if (game_state == 'battle') then
+        battle_manager:draw()
+    end
+
     for d in all(dust) do
         d:draw()
     end
 
-    debug()
+    --debug()
 end
--->8
---src/inventory.lua
-inventory = {
-    rows=5,
-    cols=5,
-    items = {
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {},
-        {}
-    },
-    add = function(self, item)
-        -- add to the first free space
-        for i=1,self.rows do
-            for j=1,self.cols do
-                if (self.items[i][j] == nil) then
-                   self.items[i][j] = item
-                   return true 
-                end
-            end
-        end
-        return false
-    end,
-    drop = function(self, x, y)
-    end,
-    remove = function(self, x, y)
-    end
-}
 -->8
 --src/map.lua
 -- map: responsible for loading the map and generating objects
@@ -365,32 +1000,98 @@ end
 --src/npc.lua
 npc_blueprint = {
     id=nil,
+    cell_x=nil,
+    cell_y=nil,
     x=nil,
     y=nil,
+    flip=false,
     spr=nil,
-    dialog=nil,
+    script=nil,
+    move_direction=nil,
+    wander=true,
     update = function(self)
-    end,
+        if self.wander then
+            if self.move_direction == nil then
+                -- pick a random direction to move in
+                if (t % 64 == 0) then
+                    local dirs = {0,0.25,0.5,0.75}
+
+                    self.move_direction = rnd(dirs)
+
+                    if (self.move_direction ~= nil) then
+
+                        if (self.move_direction == 0) then
+                            self.flip = false
+                        elseif (self.move_direction == 0.5) then
+                            self.flip = true
+                        end
+
+                        -- check to see if the next cell is free
+                        local test_collider = {id=self.id, x=0, y=0}
+                        test_collider.x = self.cell_x - cos(self.move_direction)
+                        test_collider.y = self.cell_y - sin(self.move_direction)
+
+                        if (
+                            collision_manager:test_intersect(test_collider, collision_manager.collider_types.solid) or
+                            abs(test_collider.x - self.origin_x) > 3 or
+                            abs(test_collider.y - self.origin_y) > 3
+                        ) then
+                            self.move_direction = nil
+                        else
+                            -- move the collider
+                            self.collision_component:update(test_collider.x, test_collider.y)
+
+                            local key = self.cell_x .. '-' .. self.cell_y
+                            npc_manager._[test_collider.x .. '-' .. test_collider.y] = self
+                            npc_manager._[key] = nil
+                        end
+                    end
+
+                end
+            else
+                self.x -= cos(self.move_direction)
+                self.y -= sin(self.move_direction)
+                if (self.x % 8 == 0 and self.y % 8 == 0) then
+                    self.cell_x = self.x / 8
+                    self.cell_y = self.y / 8
+                    self.move_direction = nil
+                end
+            end
+        end
+    end
 }
 
 npc_manager = {
     _ = {},
     add=function(self,p)
         for k,v in pairs(npc_blueprint) do
-            if v!=nil then
+            if v!=nil and p[k] == nil then
                 p[k]=v
             end
         end
 
         p.collision_component = collision_manager:register_collider(
             p.id,
-            p.x,
-            p.y,
+            p.cell_x,
+            p.cell_y,
             collision_manager.collider_types.solid
         )
 
-        local key = p.x .. '-' .. p.y
+        p.x = p.cell_x * 8
+        p.y = p.cell_y * 8
+        p.origin_x = p.cell_x
+        p.origin_y = p.cell_y
+
+        local key = p.cell_x .. '-' .. p.cell_y
         self._[key] = p
+    end,
+
+    delete=function(self,key)
+        local target_npc = self._[key]
+        collision_manager:delete_collider(target_npc.id)
+        -- TODO: double check that this actually cleans up the npc
+        del(self._, target_npc)
+        self._[key] = nil
     end,
     
     -- TODO: only update the npcs that are on screen
@@ -403,7 +1104,7 @@ npc_manager = {
     -- TODO: only draw the npcs that are on screen
     draw_all=function(self)
         for k,v in pairs(self._) do
-            spr(v.s,v.x*8,v.y*8,1,1,v.flip)
+            spr(v.s,v.x,v.y,1,1,v.flip)
         end
     end
 }
@@ -411,16 +1112,19 @@ npc_manager = {
 
 npc_pig = {
     id='farm_pig',
-    x = 26,
-    y = 26,
+    cell_x = 26,
+    cell_y = 26,
     s = 084,
-    dialog = {'oink!'}
+    script = function(self)
+        return {{'oink!'}}
+    end
 }
+
 
 npc_wizard = {
     id='wizard',
-    x = 29,
-    y = 37,
+    cell_x = 29,
+    cell_y = 37,
     s = 100,
     script = function(self)
         local dialog = {
@@ -443,7 +1147,8 @@ npc_wizard = {
                 },
                 {
                     'there, that should make',
-                    'him happy for a little while.'
+                    'him happy for a',
+                    'little while.'
                 }
             }
             npc_cat.fed = true
@@ -454,9 +1159,10 @@ npc_wizard = {
 
 npc_cat = {
     id='cat',
-    x=19,
-    y=22,
+    cell_x=19,
+    cell_y=22,
     s = 101,
+    wander=false,
     talked=false,
     fed = false,
     script = function(self)
@@ -464,7 +1170,8 @@ npc_cat = {
             return {
                 {
                     'thank you! *munch*',
-                    '(i must remember to bury the leftovers)'
+                    '(i must remember to bury',
+                    'the leftovers)...'
                 }
             }
         else
@@ -490,11 +1197,26 @@ npc_cat = {
     end
 }
 
+enemy_gob = {
+    id='gob',
+    cell_x=14,
+    cell_y=30,
+    s=080,
+    hostile=true,
+    health=2
+}
+
+
 dialog_manager = {
     current_npc=nil,
     dialog_counter=1,
     dialog=nil,
     load=function(self)
+        if (self.current_npc.script == nil) then
+            self.current_npc = nil
+            new_game_state = 'move'
+            return
+        end
         self.dialog_counter=1
         self.dialog=self.current_npc:script()
     end,
@@ -522,464 +1244,11 @@ dialog_manager = {
                 7
             )
             for i,v in ipairs(self.dialog[self.dialog_counter]) do
-                print(v, cam.x + 18, cam.y + 113 + (8 * (i - 1)), 7)
+                print(v, cam.x + 18, cam.y + 105 + (8 * (i - 1)), 7)
             end
         end
     end
 }
--->8
---src/lib/group.lua
-function new_group(bp)
-    return {
-        _={},
-        bp=bp,
-        
-        new=function(self,p)
-            for k,v in pairs(bp) do
-                if v!=nil then
-                    p[k]=v
-                end
-            end
-            p.alive=true
-            add(self._,p)
-        end,
-           
-        update=function(self)
-            for i,v in ipairs(self._) do
-                v:update()
-                if v.alive==false then
-                del(self._,self._[i])
-                end
-            end
-        end,
-        
-        draw=function(self)
-            for v in all(self._) do
-                spr(v.s,v.x,v.y,1,1,v.flip)
-            end
-        end
-    }
-end
--->8
---src/lib/collision.lua
-collision_manager = {
-    -- todo: quad tree to improve performance
-    objects={},
-    collider_count=0,
-    collider_types = {
-        solid='solid',
-        overlap='overlap'
-    },
-
-    -- current behavior: overwrite anything with the same id
-    register_collider=function(self, id, x, y, type)
-        local new_collider = {
-            id=id,
-            x=x,
-            y=y,
-            type=type,
-
-            update=function(self, x, y)
-                self.x = x
-                self.y = y
-            end,
-
-            check_intersect=function(self, other)
-                return false
-            end,
-
-            draw=function(self)
-                rect(self.x * 8, self.y * 8, (self.x * 8) + 8, (self.y * 8) + 8, 8)
-            end
-        }
-
-        if (self.objects[id] == nil) then
-            self.collider_count += 1
-        end
-
-        self.objects[id] = new_collider
-        return new_collider
-    end,
-
-    test_intersect=function(self, obj1, type)
-        for id,obj2 in pairs(self.objects) do
-            if (obj1.id ~= id) then
-                if (
-                    obj1.x == obj2.x and
-                    obj1.y == obj2.y
-                ) then return true end
-            end
-        end
-        return false
-    end,
-
-    draw_colliders=function(self)
-        for id,obj in pairs(self.objects) do
-            obj:draw()
-        end
-    end
-}
-
--->8
---src/lib/dust.lua
-function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
-    add(dust, {
-    fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=8,grav=_g,draw=function(self)
-    circfill(self.x,self.y,self.rad,self.col)
-    end,update=function(self)
-    self.x+=self.dx self.y+=self.dy
-    self.dy+=self.grav self.rad*=0.9 self.life-=1
-    if type(self.fade)=="table"then self.col=self.fade[flr(#self.fade*(self.life/self.orig_life))+1]else self.col=self.fade end
-    if self.life<0then del(dust,self)end end})
-end
--->8
---src/lib/util.lua
-function rndi(min,max)
-    return flr(rnd(max - min)) + min
-end
-
-function coord_match(a,b)
-    return a[1] == b[1] and a[2] == b[2]
-end
-
-function in_bounds(a,b)
-    return a > 0 and a < MAP_SIZE + 1 and b > 0 and b < MAP_SIZE + 1
-end
-
-function round(x)
-    if ((x - flr(x)) >= 0.5) then
-        return ceil(x)
-    else
-        return flr(x)
-    end
-end
-
-function print_centered(s, x1, x2, y, col)
-    local str_w = #s * 2
-    local center_point = ceil((x2 - x1) / 2) + x1
-    print(s, cam.x + (center_point - str_w), cam.y + y, col)
-end
--->8
---src/log.lua
-_log={}
-log_l=4
-for i=1,log_l do
-    add(_log,'')
-end
-
-function log(str)
-    add(_log,str)
-end
-   
-function debug()
-    local current_item = item_map:get(char.action_cell_x, char.action_cell_y)
-    local item_s = ''
-    if (current_item ~= nil) then
-        item_s = current_item.name
-    end
-
-
-    vars = {
-        't='..t,
-        "at="..at,
-        "colliders="..collision_manager.collider_count
-    }
-
-    --collision_manager:draw_colliders()
-
-    -- draw the log
-    for i=count(_log)-log_l+1,count(_log) do
-        add(vars,'> '.._log[i])
-    end
-
-    for i,v in ipairs(vars) do
-        print(v,(cam.x)+8,(cam.y)+(i*8),15)
-    end
-
-end
--->8
---src/char.lua
-function init_char()
-    local char={
-        x=200,
-        y=240,
-        runspeed=1,
-        spr=004,
-        spri=1,
-        state='stand',
-        flip=false,
-        facing_back=false,
-        cell_x=0,
-        cell_y=0,
-        next_move=nil,
-        is_moving=false,
-        move_direction=0,
-        facing=0,
-        action_cell_x=0,
-        action_cell_y=0,
-        collision_component=nil,
-        test_collider=nil,
-        last_direction=0,
-        health=10,
-        max_health=10,
-        stamina=20,
-        max_stamina=20,
-        exhausted=false,
-        states={
-            ['stand']={
-                ['walk']=1,
-                ['run']=1
-            },
-            ['walk']={
-                ['stand']=1,
-                ['run']=1
-            },
-            ['run']={
-                ['stand']=1,
-                ['walk']=1
-            }
-        },
-        animations={
-            ['stand']={096},
-            ['stand_back']={098},
-            ['walk']={096,096,097,097},
-            ['walk_back']={098,098,099,099},
-            ['run']={096,096,097,097},
-            ['run_back']={098,098,099,099}
-        },
-        change_state=change_state,
-        contextual_action=nil,
-        get_input=get_input,
-        update=update_char,
-        menu=function(self)
-            -- bring up pause / item menu
-            new_game_state = 'menu'
-        end,
-        action=function(self)
-            -- talk / read
-            new_game_state = 'menu'
-        end,
-
-        draw=function(self)
-            rectfill(self.x, self.y, self.x+7, self.y+7, 0)
-            spr(self.spr,self.x,self.y,1,1,self.flip)
-
-            -- stamina
-            if (self.stamina < self.max_stamina) then
-                local s_pct = (self.stamina / self.max_stamina) * 10
-                local s_col = 11
-                if (self.exhausted) then s_col = 8 end
-                line(self.x - 1, self.y - 2, self.x + s_pct - 1, self.y - 2, s_col)
-            end
-
-            -- contextual action
-            if (self.contextual_action and game_state == 'move') then
-                print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
-            end
-
-            -- debug collision
-            -- rect((self.collision_component.x * 8), (self.collision_component.y *8), (self.collision_component.x *8)+ 8, (self.collision_component.y * 8)+8,8)
-            -- if (self.test_collider ~= nil) then
-            --     rect(self.test_collider.x * 8, self.test_collider.y * 8, (self.test_collider.x * 8) + 8, (self.test_collider.y * 8) + 8, 9)
-            -- end
-
-        end
-    }
-
-    char.collision_component = collision_manager:register_collider(
-        'char',
-        char.cell_x,
-        char.cell_y,
-        collision_manager.collider_types.solid
-    )
-
-    return char
-end
-
-function change_state(_char, next_state)
-    if (next_state ~= _char.state and _char.states[_char.state][next_state] ~= nil) then
-        _char.state = next_state
-        _char.spri = 1
-    end
-end
-
-function update_char(_char)
-    if (_char.pause) then
-        return
-    end
-
-    -- get the active cell
-    _char.cell_x = flr(_char.x / 8)
-    _char.cell_y = flr(_char.y / 8)
-
-    next_move = nil
-
-    -- stamina recovery
-    if (t % 32 == 0 and _char.state ~= 'run' and _char.stamina < _char.max_stamina) then
-        _char.stamina = min(_char.stamina + 1, _char.max_stamina)
-        if (_char.exhausted and _char.stamina > (_char.max_stamina / 2)) then
-            _char.exhausted = false
-        end 
-    end 
-
-    -- get input for the given frame
-    if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
-        next_move = 0
-        _char.last_direction = 0
-    elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3))) then
-        next_move = 0.5
-        _char.last_direction = 0.5
-    elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
-        next_move = 0.75
-        _char.last_direction = 0.75
-    elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
-        next_move = 0.25
-        _char.last_direction = 0.25
-    end
-
-    next_state = _char.state
-
-    -- if we're moving, we shouldn't change direction until we've landed squarely on a cell
-    if (_char.is_moving) then
-        
-        -- move to cell
-        _char.x -= cos(_char.move_direction) * _char.runspeed
-        _char.y -= sin(_char.move_direction) * _char.runspeed
-
-        if (_char.state == 'run') then
-            if (t % 8 == 0) then
-                add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
-                _char.stamina -= 2
-            end
-
-            if (_char.stamina <= 0) then
-                _char.runspeed = 1
-                _char.exhausted = true
-                _char.stamina = 0
-                next_state = 'walk'
-            end
-        end
-
-        if ((_char.x % 8 <= 0.2 or _char.x % 8 >= 7.8) and (_char.y % 8 <= 0.2 or _char.y % 8 >= 7.8)) then
-            _char.x = round(_char.x)
-            _char.y = round(_char.y)
-            _char.is_moving = false
-
-            _char.action_cell_x = (_char.x / 8) - cos(_char.last_direction)
-            _char.action_cell_y = (_char.y / 8) - sin(_char.last_direction)
-        end
-    end
-
-    _char.cell_x = flr(_char.x / 8)
-    _char.cell_y = flr(_char.y / 8)
-
-    _char.contextual_action = nil
-    local action_key = (_char.action_cell_x) .. '-' .. (_char.action_cell_y)
-
-    -- talk / npcs
-    local npc_target = npc_manager._[action_key]
-    if (npc_target) then
-        _char.contextual_action = 'talk'
-    end
-
-    -- pickup items
-    local cell_item = item_map:get(_char.cell_x, _char.cell_y)
-    if (cell_item ~= nil) then
-        _char.contextual_action = 'pickup'
-    end
-
-    -- action
-    if (btnp(5)) then
-        -- check the action cell to see if we should do something different
-
-        -- item pickup
-        if (_char.contextual_action == 'pickup') then
-            local did_work = inventory:add(cell_item)
-            if (did_work) then
-                item_map:delete(_char.cell_x, _char.cell_y)
-            end
-
-            return
-        end
-
-        if (_char.contextual_action == 'talk') then
-            new_game_state = 'talk'
-            dialog_manager.current_npc = npc_target
-            dialog_manager:load()
-            return
-        end
-
-        -- otherwise, just bring up the menu
-        _char:menu()
-    end
-
-    -- if I'm on a cell and there's an input, read the next direction and get ready to move next frame
-    if (_char.is_moving == false) then
-        if (next_move ~= nil) then
-
-            -- change facing direction
-            _char.facing = next_move
-            if (next_move == 0) then
-                _char.flip = true
-                _char.facing_back = false
-            elseif (next_move == 0.25) then
-                _char.facing_back = false
-            elseif (next_move == 0.5) then
-                _char.flip = false
-                _char.facing_back = false
-            elseif (next_move == 0.75) then
-                _char.facing_back = true
-            end
-
-            _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
-            _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
-
-            -- check to see if the next cell is free
-            _char.test_collider = {id='char', x=0, y=0}
-            _char.test_collider.x = _char.cell_x - cos(next_move)
-            _char.test_collider.y = _char.cell_y - sin(next_move)
-
-            if (collision_manager:test_intersect(_char.test_collider, collision_manager.collider_types.solid)) then
-                return
-            end
-
-            -- if it is...
-            next_state = 'walk'
-
-            _char.is_moving = true
-            _char.move_direction = next_move
-            _char.runspeed = 1
-
-            if (btn(4)) then
-                if (_char.stamina > 0 and _char.exhausted == false) then
-                    _char.runspeed = 2
-                    next_state = 'run'
-                end
-            end
-        else
-            next_state = 'stand'
-        end
-    end
-
-    -- update state
-    _char:change_state(next_state)
-
-    _char.collision_component:update(_char.cell_x, _char.cell_y)
-
-    -- _char.action_cell_x = _char.cell_x - cos(_char.last_direction)
-    -- _char.action_cell_y = _char.cell_y - sin(_char.last_direction)
-
-    -- animation, and update sprite
-    current_anim = _char.state
-    if (_char.facing_back == true) then
-        current_anim = _char.state .. '_back'
-    end
-    if (t % 4 == 0) then
-        _char.spri = ((_char.spri + 1) % #_char.animations[current_anim]) + 1
-    end
-
-    _char.spr = _char.animations[current_anim][_char.spri]
-end
 -->8
 __gfx__
 00000000000330000000000000000900000000000000000008000080000000000000000000000000000000000000000005000050000000000000000000000000
@@ -1022,13 +1291,13 @@ __gfx__
 0474777777777777f4f4ffff47aaaa7456655555000400000dd07c0044144144333333336666666655555555ffffffff77777777200000020000000000000000
 0447777777777777ffffffff47777774555555550400000400cd0dd044144144333333336666666655555555ffffffff77777777200000026606666000000000
 0444444444444444ffffffff444444445555556600000400cc0000cc11111111333333336666666655555555ffffffff77777777222222220000000000000000
-0bb00bb000000000000000000000000000eeee000070000700000000000000000000000000000000000000000000000000000000000000000000000000000000
-0b1bb1b00000000000050555555555000eeeeee00070000700777700000007100000000000000000000000000000000000000000000000000000000000000000
-0b1771b0000000000055555555555500ee77e77e0001711007717170000007600000000000000000000000000000000000000000000000000000000000000000
-0bb11bb0000000000055555555555550ee71e17e0001711007717170000076000000000000000000000000000000000000000000000000000000000000000000
-bb9999bb000000000055555555555550eeeeeeee0077777007777770000760000000000000000000000000000000000000000000000000000000000000000000
-b099990b0000000000000555555555500ee1e1e00777776000777770077600000000000000000000000000000000000000000000000000000000000000000000
-00bbbb0000000000000005555555550001eeee000071710000071700016000000000000000000000000000000000000000000000000000000000000000000000
+0bb0033000000000000000000000000000eeee000070000700000000000000000000000000000000000000000000000000000000000000000000000000000000
+033bb1700000000000050555555555000eeeeee00070000700777700000007100000000000000000000000000000000000000000000000000000000000000000
+01733170000000000055555555555500e77e77ee0001711007717170000007600000000000000000000000000000000000000000000000000000000000000000
+0b3133b0000000000055555555555550e71e17ee0001711007717170000076000000000000000000000000000000000000000000000000000000000000000000
+bb7e79bb000000000055555555555550eeeeeeee0077777007777770000760000000000000000000000000000000000000000000000000000000000000000000
+b099990b0000000000000555555555500e1e1ee00777776000777770077600000000000000000000000000000000000000000000000000000000000000000000
+00b33b0000000000000005555555550000eeee100071710000071700016000000000000000000000000000000000000000000000000000000000000000000000
 0bb00bb000000000000555500005550000e00e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000000000010000000000000000000000000d0000161161000000000000000000000000000000000000000000000000000000000000000000000000000000000
 10700400017004004010010004100100040dd0000166661000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1046,29 +1315,45 @@ b099990b0000000000000555555555500ee1e1e00777776000777770077600000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000646421640000008200000054001110101010100000000000000000000000000000000000000000000000000000
+00000000000000a10054540000f07200310082646421640000008200000054001110101010100000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000646464820000000000708000000021101011116464000000000000000000000000000000000000000000000000
+0000000000a090700054003232f10313133100646464820000000000708000000021101011116464000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000006464820000720070707000900000212100006472000082000000000000000000000000000000000000000000
+00000000000000700054000072000434143431646464820000720070707000900000212100006472000082000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000008210007090900090000000008200726400000000000000000000000000000000000000000000000000
+00000000000080007070707000b10414240431006464008210007090900090000000008200726400000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000021706590900090700054000000646400826464000000000000000000000000000000000000000000
+000000000000008000a0700070000000000000006464000021706590900090700054000000646400826464000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000005400700090005500700054545482640000006464000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000064645400700090005500700054545482640000006464000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000008070549080700000005400646472000072000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000064640000008070549080700000005400646472000072000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000009000000080707070000070000064646464008200000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000646400000080707070000070000064646464008200000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000540000000000540000006464646464000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000647064540000000000540000006482826464220000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000900000000000000000006464646400000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000646464647000000000000000006472826400000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000007000000000000072640082000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000006464646464647000000000820064647282000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000064646464646464648200720000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000064646470706464720064640000640000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000646464800082002264648200728200000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000646400000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000646490005400000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000646400000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000006464900000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000064640000540000000000000000000000000000000000000000000000000000000000000000
 __gff__
-0001010000000001000000000000000000010101000000000000000001000000000000000000000000000000000000000000000000000000000000000000000001010000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0001010000000001000000000000000100010101000000000000000001000001000000000000000000000000000000000000000000000000000000000000000001010000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 4848484848484848484848484848484848484848484848484848484848484646464a4a4a4a4a4a4a4a4a4a4a4a4a4a000000000000000000000000000000000000484848484848484848484848484a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a
@@ -1087,22 +1372,22 @@ __map__
 484848480000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
 484848000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
 484848000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
-484848000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
-484848000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
-484848000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
-484848000000000000000000000000000000000227020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
-484848000000000000000000000000000000000202020100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
-484848000000000000000000000000000000001201011201000000000000010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
-484848000000000000000000000000000000000001010012003031310101111101130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
-4848480000000000000000000000000000280000011113000040414201111327010000010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4848480000000000000000000000000000000000111913090909090911010013010101120101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-484848000000000000000000000000000000280000000000092c2c2c2c010000011201280101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048
-484800000000000000000000000000000000000000000100092c2c2c2c010000012811130101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048
-48480000000000000000000000000000464627002800111c002c2c2c2c114500010128010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048
-4848000000000000000000000000000000464600000000002800000028004500010101110101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4848000000000000000000000000000000464646270000000000000000004500010101010101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4848000000000000000000004545454545474747474545454545454545454500011201010101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046
-4848000000000000000000454500000000004646270228000000000000004500010101010101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004800000000000000464646
+484848000000000000000000004646000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
+484848000000000000000000004646000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
+484848000000000000000000000046460000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
+484848000000000000000000000046460000000227020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
+484848000000000000000000000046460000000202020100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
+484848000000000000000000000046460000001201011201000000000000010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
+484848000000000000000000000046460000000001010012003031310101111101130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004a
+4848480000000000000000000000464600280000011113000040414201111327010000010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4848480000000000000000000000004600000000111913090909090911010013010101120101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+484848000000000000000000000000464600280000000000092c2c2c2c010000011201280101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048
+484800000000000000000000000000464646000000000100092c2c2c2c010000012811130101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048
+484800000000000000000f2845000f00464627002800111c002c2c2c2c114500010128010101010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048
+484800000000000000231f0045231f2300464600000000002800000028004500010101110101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4848000000000000232323004500000028464646270000000000000000004500010101010101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4848000000000013232300004545454545474747474545454545454545454500011201010101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046
+4848000000090000000045454528000000004646270228000000000000004500010101010101010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004800000000000000464646
 __sfx__
 000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 01110000100500000000000000000000000000000000000010050000000000000000000000000000000000001005000000000000000000000000000000000000100500000000000000000e050000000000000000
@@ -1112,6 +1397,45 @@ __sfx__
 3111000024524285242b5242f52424524285242b5242f52424524285242b5242f52424524285242b5242f5242b5242f52432524365242b5242f52432524365242b5242f52432524365242b5242f5243252436524
 011100000c0500c0500c0550c000000000000000000000000c0500c0500c055000000000000000000000000013050130501305500000000000000000000000001305013050130550000015050150501000000000
 011100001100000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00020000076500965011650116500a6500b65008650316502a650244502045016450104500b650096500865005650016500065003650046500365003650016500065000000000000000000000000000000000000
+0002000022150201501f2501b150181501515011150101500e1500b15008130041400215001600016000160000600006000060000600000000000000000000000000000000000000000000000000000000000000
+0001000005650076500b6500b6501165015650196501d650246501b650106500c6500865007650036500365000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00010000111501115016150181501b1501c150201502115024150251502615026150241501f1501b150190501415014150141501215014150141500f150131501315013150131501215014150161501b1501d150
+00060000216501e65023650176500e63007620046500865008650076200362002620016200562005620076200a61004610096100961000000046000f600036000000000000000000000000000000000000000000
+00060000280502d050000002d040000002d030000002d020000002d01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000e0000075500b5500f55014550175501b55020550115501155013550165501a5501d55020550235502a550265502a550225502a550255402a540225202a520255002a5102f5002a510000002a5100000000000
 __music__
 01 01424344
 00 01024344

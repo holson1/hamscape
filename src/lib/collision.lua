@@ -37,6 +37,10 @@ collision_manager = {
         return new_collider
     end,
 
+    delete_collider=function(self,id)
+        self.objects[id] = nil
+    end,
+
     test_intersect=function(self, obj1, type)
         for id,obj2 in pairs(self.objects) do
             if (obj1.id ~= id) then

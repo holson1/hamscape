@@ -33,8 +33,9 @@ function _init()
     npc_manager:add(npc_pig)
     npc_manager:add(npc_wizard)
     npc_manager:add(npc_cat)
+    npc_manager:add(enemy_gob)
 
-    music(0, 3000)
+    --music(0, 3000)
 end
 
 function _update()
@@ -56,6 +57,10 @@ function _update()
 
     if (game_state == 'talk') then
         dialog_manager:update()
+    end
+
+    if (game_state == 'battle') then
+        battle_manager:update()
     end
 
     cam.x = max(char.x - 64, 0)
@@ -112,9 +117,13 @@ function _draw()
         dialog_manager:draw()
     end
 
+    if (game_state == 'battle') then
+        battle_manager:draw()
+    end
+
     for d in all(dust) do
         d:draw()
     end
 
-    debug()
+    --debug()
 end
