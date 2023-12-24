@@ -39,6 +39,14 @@ collision_manager = {
 
     delete_collider=function(self,id)
         self.objects[id] = nil
+        self.collider_count -= 1
+    end,
+    
+    flush=function(self)
+        for k in pairs(self.objects) do
+            self.objects[k] = nil
+        end
+        self.collider_count = 0
     end,
 
     test_intersect=function(self, obj1, type)

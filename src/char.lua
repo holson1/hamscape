@@ -160,6 +160,7 @@ function update_char(_char)
             end
         end
 
+        -- landed on a cell
         if ((_char.x % 8 <= 0.2 or _char.x % 8 >= 7.8) and (_char.y % 8 <= 0.2 or _char.y % 8 >= 7.8)) then
             _char.x = round(_char.x)
             _char.y = round(_char.y)
@@ -167,11 +168,18 @@ function update_char(_char)
 
             _char.action_cell_x = (_char.x / 8) - cos(_char.last_direction)
             _char.action_cell_y = (_char.y / 8) - sin(_char.last_direction)
+
+            _char.cell_x = flr(_char.x / 8)
+            _char.cell_y = flr(_char.y / 8)
+
+            -- check cell for exits
+            local tile_key = _char.cell_x .. "-" .. _char.cell_y
+            if (level.exits[tile_key] ~= nil) then
+                local lv = levels.list[level.exits[tile_key]]
+                transition_level(lv)
+            end
         end
     end
-
-    _char.cell_x = flr(_char.x / 8)
-    _char.cell_y = flr(_char.y / 8)
 
     _char.contextual_action = nil
     local action_key = (_char.action_cell_x) .. '-' .. (_char.action_cell_y)

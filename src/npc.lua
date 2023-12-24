@@ -88,10 +88,16 @@ npc_manager = {
 
     delete=function(self,key)
         local target_npc = self._[key]
-        collision_manager:delete_collider(target_npc.id)
-        -- TODO: double check that this actually cleans up the npc
-        del(self._, target_npc)
+        if (target_npc ~= nil) then
+            collision_manager:delete_collider(target_npc.id)
+        end
         self._[key] = nil
+    end,
+
+    flush=function(self)
+        for k in pairs(self._) do
+            self:delete(k)
+        end
     end,
     
     -- TODO: only update the npcs that are on screen
@@ -116,7 +122,7 @@ npc_pig = {
     cell_y = 26,
     s = 084,
     script = function(self)
-        return {{'oink!'}}
+        return {'oink!'}
     end
 }
 
@@ -128,28 +134,14 @@ npc_wizard = {
     s = 100,
     script = function(self)
         local dialog = {
-            {
-                'blast, my journey was',
-                'cut short by a bear!'
-            }
+            'blast, my journey was\ncut short by a bear!'
         }
         if (npc_cat.talked and not(npc_cat.fed)) then
             dialog = {
-                {
-                    'oh, my cat is hungry?'
-                },
-                {
-                    'let me summon him a',
-                    'nice tuna fish.'
-                },
-                {
-                    '...'
-                },
-                {
-                    'there, that should make',
-                    'him happy for a',
-                    'little while.'
-                }
+                'oh, my cat is hungry?',
+                'let me summon him a\nnice tuna fish.',
+                '...!',
+                'there, that should make\nhim happy for a\nlittle while.'
             }
             npc_cat.fed = true
         end
@@ -168,30 +160,15 @@ npc_cat = {
     script = function(self)
         if (self.fed) then
             return {
-                {
-                    'thank you! *munch*',
-                    '(i must remember to bury',
-                    'the leftovers)...'
-                }
+                'thank you! *munch*\n(i must remember to bury\nthe leftovers...)'
             }
         else
             self.talked=true
             return {
-                {
-                    "that's right, i'm a cat.",
-                    "just like you~"
-                },
-                {
-                    "i'm also quite hungry."
-                },
-                {
-                    "can you tell my owner",
-                    "to summon me some food?"
-                },
-                {
-                    "he's a wizard",
-                    "...so he can do that."
-                }
+                "that's right, i'm a cat.\njust like you~",
+                "i'm also quite hungry.",
+                "can you tell my owner\nto summon me some food?",
+                "he's a \fcwizard\n\f7...so he can do that."
             }
         end
     end
@@ -209,6 +186,8 @@ enemy_gob = {
 
 dialog_manager = {
     current_npc=nil,
+    char_counter=1,
+    button_held=false,
     dialog_counter=1,
     dialog=nil,
     load=function(self)
@@ -218,20 +197,44 @@ dialog_manager = {
             return
         end
         self.dialog_counter=1
+        self.char_counter=1
         self.dialog=self.current_npc:script()
     end,
     update = function(self)
+        local line = self.dialog[self.dialog_counter]
+
         if (btnp(4)) then
             self.current_npc = nil
             new_game_state = 'move'
+            return
         end
 
-        if (btnp(5)) then
-            self.dialog_counter +=1
-            if (self.dialog_counter > #self.dialog) then
-                self.current_npc = nil
-                new_game_state = 'move'
+        if (btn(5)) then
+            if (self.button_held == false) then
+                self.button_held = true
+
+                -- move to end of text
+                if (self.char_counter < #line) then
+                    self.char_counter = #line
+                    return
+                end
+
+                -- advance to next block
+                self.dialog_counter +=1
+                self.char_counter=1
+                if (self.dialog_counter > #self.dialog) then
+                    self.current_npc = nil
+                    new_game_state = 'move'
+                    return
+                end
             end
+        else
+            self.button_held = false
+        end
+
+        if (self.char_counter < #line) then
+            self.char_counter += 1
+            sfx(rnd({47,47,48,47}))
         end
     end,
     draw = function(self)
@@ -243,8 +246,12 @@ dialog_manager = {
                 127,
                 7
             )
-            for i,v in ipairs(self.dialog[self.dialog_counter]) do
-                print(v, cam.x + 18, cam.y + 105 + (8 * (i - 1)), 7)
+            local line = self.dialog[self.dialog_counter]
+            local substring = sub(line, 1, self.char_counter)
+            print(substring, cam.x + 18, cam.y + 105, 7)
+
+            if (self.char_counter >= #line and t%32 > 16) then
+                print("\142", cam.x + 110, cam.y + 120, 7)
             end
         end
     end

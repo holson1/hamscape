@@ -11,6 +11,7 @@ function _init()
         cell_y = 0
     }
     msg=''
+    level=levels.overworld
 
     -- states: move, menu, talk, etc.
     -- game states change control delegates
@@ -28,12 +29,13 @@ function _init()
     map_manager:init()
 
     char=init_char()
-    item_map:set(26, 29, items.crab)
+    level:load()
+    -- item_map:set(26, 29, items.crab)
 
-    npc_manager:add(npc_pig)
-    npc_manager:add(npc_wizard)
-    npc_manager:add(npc_cat)
-    npc_manager:add(enemy_gob)
+    -- npc_manager:add(npc_pig)
+    -- npc_manager:add(npc_wizard)
+    -- npc_manager:add(npc_cat)
+    -- npc_manager:add(enemy_gob)
 
     --music(0, 3000)
 end
@@ -81,19 +83,23 @@ function _update()
         new_game_state = nil
     end
 
-    if (cam.cell_x ~= old_cell_x or cam.cell_y ~= old_cell_y) then
-        for i=cam.cell_x,cam.cell_x+17 do
-            for j=cam.cell_y,cam.cell_y+17 do
-                local new_cell = mget(i,j)
-                if (fget(new_cell) == 1) then
-                    collision_manager:register_collider(
-                        'map-'..i..'-'..j,
-                        i,
-                        j,
-                        collision_manager.collider_types.solid
-                    )
-                end
-            end 
+    level:update()
+
+    if (level == levels.overworld) then
+        if (cam.cell_x ~= old_cell_x or cam.cell_y ~= old_cell_y) then
+            for i=cam.cell_x,cam.cell_x+17 do
+                for j=cam.cell_y,cam.cell_y+17 do
+                    local new_cell = mget(i,j)
+                    if (fget(new_cell) == 1) then
+                        collision_manager:register_collider(
+                            'map-'..i..'-'..j,
+                            i,
+                            j,
+                            collision_manager.collider_types.solid
+                        )
+                    end
+                end 
+            end
         end
     end
 
@@ -103,11 +109,23 @@ function _draw()
     cls()
 
     camera(cam.x, cam.y)
-    map(cam.cell_x,cam.cell_y,cam.cell_x * 8, cam.cell_y* 8,17,17)
+    level:draw()
 
     item_map:draw()
     npc_manager:draw_all()
     char:draw()
+
+    -- foreground
+    for i=char.cell_x-1,char.cell_x+1 do
+        for j=char.cell_y-1,char.cell_y+1 do
+            local sp = mget(i, j)
+            if sp == 044 or sp == 035 or sp == 039 then
+                local sx, sy = (sp % 16) * 8, flr(sp \ 16) * 8
+                sspr(sx, sy+4, 8, 4, i*8, (j*8) + 4)
+            end
+        end
+    end
+    -- map(char.cell_x-1,char.cell_y-1,(char.cell_x-1) * 8, (char.cell_y-1) * 8,3,3,0x80)
 
     if (game_state == 'menu') then
         menu:draw()

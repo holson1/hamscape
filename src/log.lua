@@ -22,7 +22,7 @@ function debug()
         "colliders="..collision_manager.collider_count
     }
 
-    --collision_manager:draw_colliders()
+    collision_manager:draw_colliders()
 
     -- draw the log
     for i=count(_log)-log_l+1,count(_log) do
