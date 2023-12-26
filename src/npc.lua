@@ -51,14 +51,14 @@ npc_blueprint = {
             else
                 self.x -= cos(self.move_direction)
                 self.y -= sin(self.move_direction)
-                if (self.x % 8 == 0 and self.y % 8 == 0) then
+                if self.x % 8 == 0 and self.y % 8 == 0 then
                     self.cell_x = self.x / 8
                     self.cell_y = self.y / 8
                     self.move_direction = nil
                 end
             end
         else
-            if (t % 16 == 0) then
+            if t%16 == 0 then
                 self.flip = not(self.flip)
             end
         end
@@ -92,7 +92,7 @@ npc_manager = {
 
     delete=function(self,key)
         local target_npc = self._[key]
-        if (target_npc ~= nil) then
+        if target_npc ~= nil then
             collision_manager:delete_collider(target_npc.id)
         end
         self._[key] = nil
@@ -150,7 +150,7 @@ npc_wizard = {
         local dialog = {
             'blast, my journey was\ncut short by a bear!'
         }
-        if (npc_cat.talked and not(npc_cat.fed)) then
+        if npc_cat.talked and not(npc_cat.fed) then
             dialog = {
                 'oh, my cat is hungry?',
                 'let me summon him a\nnice tuna fish.',
@@ -172,7 +172,7 @@ npc_cat = {
     talked=false,
     fed = false,
     script = function(self)
-        if (self.fed) then
+        if self.fed then
             return {
                 'thank you! *munch*\n(i must remember to bury\nthe leftovers...)'
             }
@@ -238,7 +238,7 @@ dialog_manager = {
     dialog_counter=1,
     dialog=nil,
     load=function(self)
-        if (self.current_npc.script == nil) then
+        if self.current_npc.script == nil then
             self.current_npc = nil
             new_game_state = 'move'
             return
@@ -250,18 +250,18 @@ dialog_manager = {
     update = function(self)
         local line = self.dialog[self.dialog_counter]
 
-        if (btnp(4)) then
+        if btnp(4) then
             self.current_npc = nil
             new_game_state = 'move'
             return
         end
 
-        if (btn(5)) then
-            if (self.button_held == false) then
+        if btn(5) then
+            if self.button_held == false then
                 self.button_held = true
 
                 -- move to end of text
-                if (self.char_counter < #line) then
+                if self.char_counter < #line then
                     self.char_counter = #line
                     return
                 end
@@ -269,7 +269,7 @@ dialog_manager = {
                 -- advance to next block
                 self.dialog_counter +=1
                 self.char_counter=1
-                if (self.dialog_counter > #self.dialog) then
+                if self.dialog_counter > #self.dialog then
                     self.current_npc = nil
                     new_game_state = 'move'
                     return
@@ -279,13 +279,13 @@ dialog_manager = {
             self.button_held = false
         end
 
-        if (self.char_counter < #line) then
+        if self.char_counter < #line then
             self.char_counter += 1
             sfx(rnd({47,47,48,47}))
         end
     end,
     draw = function(self)
-        if (self.current_npc) then
+        if self.current_npc then
             draw_menu_rect(
                 8,
                 103,
@@ -297,7 +297,7 @@ dialog_manager = {
             local substring = sub(line, 1, self.char_counter)
             print(substring, cam.x + 18, cam.y + 105, 7)
 
-            if (self.char_counter >= #line and t%32 > 16) then
+            if self.char_counter >= #line and t%32 > 16 then
                 print("\142", cam.x + 110, cam.y + 120, 7)
             end
         end

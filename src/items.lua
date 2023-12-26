@@ -18,12 +18,12 @@ items.shed_key = {
 item_map = {
     _={},
     get = function(self, x, y)
-        if (self._[y] ~= nil) then
+        if self._[y] ~= nil then
             return self._[y][x]
         end
     end,
     set = function(self, x, y, item)
-        if (self._[y] == nil) then
+        if self._[y] == nil then
             self._[y] = {}
         end
 
@@ -34,9 +34,9 @@ item_map = {
     end,
     draw = function(self)
         for i=1,64 do
-            if (self._[i] ~= nil) then
+            if self._[i] ~= nil then
                 for j=1,64 do
-                    if (self._[i][j] ~= nil) then
+                    if self._[i][j] ~= nil then
                         spr(self._[i][j].spr, j * 8, i * 8)
                     end
                 end

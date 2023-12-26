@@ -36,24 +36,24 @@ function _update()
     --pal()
     t=(t+1)%128
     
-    if ((t % 4) == 0) then
+    if t%4 == 0 then
         at = (at+1)%16
     end
 
-    if (game_state == 'move') then
+    if game_state == 'move' then
         char:update()
         npc_manager:update_all()
     end
 
-    if (game_state == 'menu') then
+    if game_state == 'menu' then
         menu:update()
     end
 
-    if (game_state == 'talk') then
+    if game_state == 'talk' then
         dialog_manager:update()
     end
 
-    if (game_state == 'battle') then
+    if game_state == 'battle' then
         battle_manager:update()
     end
 
@@ -70,19 +70,19 @@ function _update()
         d:update()
     end
 
-    if (new_game_state) then
+    if new_game_state then
         game_state = new_game_state
         new_game_state = nil
     end
 
     level:update()
 
-    if (level == levels.overworld) then
-        if (cam.cell_x ~= old_cell_x or cam.cell_y ~= old_cell_y) then
+    if level == levels.overworld then
+        if cam.cell_x ~= old_cell_x or cam.cell_y ~= old_cell_y then
             for i=cam.cell_x,cam.cell_x+17 do
                 for j=cam.cell_y,cam.cell_y+17 do
                     local new_cell = mget(i,j)
-                    if (fget(new_cell) == 1) then
+                    if fget(new_cell) == 1 then
                         collision_manager:register_collider(
                             'map-'..i..'-'..j,
                             i,
@@ -120,15 +120,15 @@ function _draw()
     end
     -- map(char.cell_x-1,char.cell_y-1,(char.cell_x-1) * 8, (char.cell_y-1) * 8,3,3,0x80)
 
-    if (game_state == 'menu') then
+    if game_state == 'menu' then
         menu:draw()
     end
 
-    if (game_state == 'talk') then
+    if game_state == 'talk' then
         dialog_manager:draw()
     end
 
-    if (game_state == 'battle') then
+    if game_state == 'battle' then
         battle_manager:draw()
     end
 

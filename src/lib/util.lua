@@ -11,7 +11,7 @@ function in_bounds(a,b)
 end
 
 function round(x)
-    if ((x - flr(x)) >= 0.5) then
+    if (x - flr(x)) >= 0.5 then
         return ceil(x)
     else
         return flr(x)

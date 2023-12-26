@@ -33,7 +33,7 @@ levels.overworld = {
         object_manager:add(24,21,066,{
             action={
                 ['check']=function(self)
-                    if (inventory:has_item('shed key')) then
+                    if inventory:has_item('shed key') then
                         object_manager:delete("24-21")
                         sfx(42)
                         return {"unlocked the door."}

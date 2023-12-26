@@ -11,7 +11,7 @@ end
 function debug()
     local current_item = item_map:get(char.action_cell_x, char.action_cell_y)
     local item_s = ''
-    if (current_item ~= nil) then
+    if current_item ~= nil then
         item_s = current_item.name
     end
 

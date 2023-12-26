@@ -51,11 +51,10 @@ collision_manager = {
 
     test_intersect=function(self, obj1, type)
         for id,obj2 in pairs(self.objects) do
-            if (obj1.id ~= id) then
-                if (
-                    obj1.x == obj2.x and
-                    obj1.y == obj2.y
-                ) then return true end
+            if obj1.id ~= id then
+                if obj1.x == obj2.x and obj1.y == obj2.y then
+                    return true
+                end
             end
         end
         return false

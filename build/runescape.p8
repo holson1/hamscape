@@ -37,7 +37,7 @@ levels.overworld = {
         object_manager:add(24,21,066,{
             action={
                 ['check']=function(self)
-                    if (inventory:has_item('shed key')) then
+                    if inventory:has_item('shed key') then
                         object_manager:delete("24-21")
                         sfx(42)
                         return {"unlocked the door."}
@@ -163,12 +163,12 @@ items.shed_key = {
 item_map = {
     _={},
     get = function(self, x, y)
-        if (self._[y] ~= nil) then
+        if self._[y] ~= nil then
             return self._[y][x]
         end
     end,
     set = function(self, x, y, item)
-        if (self._[y] == nil) then
+        if self._[y] == nil then
             self._[y] = {}
         end
 
@@ -179,9 +179,9 @@ item_map = {
     end,
     draw = function(self)
         for i=1,64 do
-            if (self._[i] ~= nil) then
+            if self._[i] ~= nil then
                 for j=1,64 do
-                    if (self._[i][j] ~= nil) then
+                    if self._[i][j] ~= nil then
                         spr(self._[i][j].spr, j * 8, i * 8)
                     end
                 end
@@ -229,24 +229,24 @@ function _update()
     --pal()
     t=(t+1)%128
     
-    if ((t % 4) == 0) then
+    if t%4 == 0 then
         at = (at+1)%16
     end
 
-    if (game_state == 'move') then
+    if game_state == 'move' then
         char:update()
         npc_manager:update_all()
     end
 
-    if (game_state == 'menu') then
+    if game_state == 'menu' then
         menu:update()
     end
 
-    if (game_state == 'talk') then
+    if game_state == 'talk' then
         dialog_manager:update()
     end
 
-    if (game_state == 'battle') then
+    if game_state == 'battle' then
         battle_manager:update()
     end
 
@@ -263,19 +263,19 @@ function _update()
         d:update()
     end
 
-    if (new_game_state) then
+    if new_game_state then
         game_state = new_game_state
         new_game_state = nil
     end
 
     level:update()
 
-    if (level == levels.overworld) then
-        if (cam.cell_x ~= old_cell_x or cam.cell_y ~= old_cell_y) then
+    if level == levels.overworld then
+        if cam.cell_x ~= old_cell_x or cam.cell_y ~= old_cell_y then
             for i=cam.cell_x,cam.cell_x+17 do
                 for j=cam.cell_y,cam.cell_y+17 do
                     local new_cell = mget(i,j)
-                    if (fget(new_cell) == 1) then
+                    if fget(new_cell) == 1 then
                         collision_manager:register_collider(
                             'map-'..i..'-'..j,
                             i,
@@ -313,15 +313,15 @@ function _draw()
     end
     -- map(char.cell_x-1,char.cell_y-1,(char.cell_x-1) * 8, (char.cell_y-1) * 8,3,3,0x80)
 
-    if (game_state == 'menu') then
+    if game_state == 'menu' then
         menu:draw()
     end
 
-    if (game_state == 'talk') then
+    if game_state == 'talk' then
         dialog_manager:draw()
     end
 
-    if (game_state == 'battle') then
+    if game_state == 'battle' then
         battle_manager:draw()
     end
 
@@ -351,7 +351,7 @@ inventory = {
         -- add to the first free space
         for i=1,self.rows do
             for j=1,self.cols do
-                if (self.items[i][j] == nil) then
+                if self.items[i][j] == nil then
                    self.items[i][j] = item
                    return true 
                 end
@@ -416,7 +416,7 @@ object_manager = {
 
     delete=function(self,key)
         local target_obj = self._[key]
-        if (target_obj ~= nil) then
+        if target_obj ~= nil then
             collision_manager:delete_collider(target_obj.id)
         end
         self._[key] = nil
@@ -480,40 +480,40 @@ menu = {
 
 
         -- todo: refactor into input fn
-        if (btnp(0)) then
+        if btnp(0) then
             self.cursor.x = max(self.cursor.x - 1, 1)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 1, 0, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 0.5, 0, 4, 1, 0, 7)
         end
 
-        if (btnp(1)) then
+        if btnp(1) then
             self.cursor.x = min(self.cursor.x + 1, inventory.cols)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -1, 0, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -0.5, 0, 4, 1, 0, 7)
         end
 
-        if (btnp(2)) then
+        if btnp(2) then
             self.cursor.y = max(self.cursor.y - 1, 1)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 1, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 0.5, 4, 1, 0, 7)
         end
 
-        if (btnp(3)) then
+        if btnp(3) then
             self.cursor.y = min(self.cursor.y + 1, inventory.rows)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -1, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -0.5, 4, 1, 0, 7)
         end 
 
 
-        if (btnp(5)) then
+        if btnp(5) then
             -- drop item
-            if (self.selected_item) then
+            if self.selected_item then
                 item_map:set(char.cell_x, char.cell_y, inventory.items[self.cursor.x][self.cursor.y])
                 inventory.items[self.cursor.x][self.cursor.y] = nil
             end
         end
 
-        if (btnp(4)) then
+        if btnp(4) then
             new_game_state = 'move'
         end
 
@@ -543,7 +543,7 @@ menu = {
         for i=1,inventory.rows do
             for j=1,inventory.cols do
                 local item = inventory.items[j][i]
-                if (item ~= nil) then
+                if item then
                     spr(item.spr, cam.x + self.positions.inventory.grid.left + ((j-1) * 8), cam.y + self.positions.inventory.grid.top + ((i-1) * 8))
                 end
             end
@@ -569,7 +569,7 @@ menu = {
             7
         )
 
-        if (self.selected_item ~= nil) then
+        if self.selected_item ~= nil then
             print_centered(self.selected_item.name, self.positions.bottom_bar.left, self.positions.bottom_bar.right, self.positions.bottom_bar.top + 2, 7)
         end
 
@@ -577,7 +577,7 @@ menu = {
 }
 
 function draw_menu_rect(x0, y0, x1, y1, color, transparent)
-    if (not(transparent)) then
+    if not(transparent) then
         rectfill(cam.x + x0, cam.y + y0, cam.x + x1, cam.y + y1, 0)
     end
     line(cam.x + x0 + 1, cam.y + y0, cam.x + x1 - 1, cam.y + y0, color)
@@ -640,14 +640,14 @@ npc_blueprint = {
             else
                 self.x -= cos(self.move_direction)
                 self.y -= sin(self.move_direction)
-                if (self.x % 8 == 0 and self.y % 8 == 0) then
+                if self.x % 8 == 0 and self.y % 8 == 0 then
                     self.cell_x = self.x / 8
                     self.cell_y = self.y / 8
                     self.move_direction = nil
                 end
             end
         else
-            if (t % 16 == 0) then
+            if t%16 == 0 then
                 self.flip = not(self.flip)
             end
         end
@@ -681,7 +681,7 @@ npc_manager = {
 
     delete=function(self,key)
         local target_npc = self._[key]
-        if (target_npc ~= nil) then
+        if target_npc ~= nil then
             collision_manager:delete_collider(target_npc.id)
         end
         self._[key] = nil
@@ -739,7 +739,7 @@ npc_wizard = {
         local dialog = {
             'blast, my journey was\ncut short by a bear!'
         }
-        if (npc_cat.talked and not(npc_cat.fed)) then
+        if npc_cat.talked and not(npc_cat.fed) then
             dialog = {
                 'oh, my cat is hungry?',
                 'let me summon him a\nnice tuna fish.',
@@ -761,7 +761,7 @@ npc_cat = {
     talked=false,
     fed = false,
     script = function(self)
-        if (self.fed) then
+        if self.fed then
             return {
                 'thank you! *munch*\n(i must remember to bury\nthe leftovers...)'
             }
@@ -827,7 +827,7 @@ dialog_manager = {
     dialog_counter=1,
     dialog=nil,
     load=function(self)
-        if (self.current_npc.script == nil) then
+        if self.current_npc.script == nil then
             self.current_npc = nil
             new_game_state = 'move'
             return
@@ -839,18 +839,18 @@ dialog_manager = {
     update = function(self)
         local line = self.dialog[self.dialog_counter]
 
-        if (btnp(4)) then
+        if btnp(4) then
             self.current_npc = nil
             new_game_state = 'move'
             return
         end
 
-        if (btn(5)) then
-            if (self.button_held == false) then
+        if btn(5) then
+            if self.button_held == false then
                 self.button_held = true
 
                 -- move to end of text
-                if (self.char_counter < #line) then
+                if self.char_counter < #line then
                     self.char_counter = #line
                     return
                 end
@@ -858,7 +858,7 @@ dialog_manager = {
                 -- advance to next block
                 self.dialog_counter +=1
                 self.char_counter=1
-                if (self.dialog_counter > #self.dialog) then
+                if self.dialog_counter > #self.dialog then
                     self.current_npc = nil
                     new_game_state = 'move'
                     return
@@ -868,13 +868,13 @@ dialog_manager = {
             self.button_held = false
         end
 
-        if (self.char_counter < #line) then
+        if self.char_counter < #line then
             self.char_counter += 1
             sfx(rnd({47,47,48,47}))
         end
     end,
     draw = function(self)
-        if (self.current_npc) then
+        if self.current_npc then
             draw_menu_rect(
                 8,
                 103,
@@ -886,7 +886,7 @@ dialog_manager = {
             local substring = sub(line, 1, self.char_counter)
             print(substring, cam.x + 18, cam.y + 105, 7)
 
-            if (self.char_counter >= #line and t%32 > 16) then
+            if self.char_counter >= #line and t%32 > 16 then
                 print("\142", cam.x + 110, cam.y + 120, 7)
             end
         end
@@ -980,11 +980,10 @@ collision_manager = {
 
     test_intersect=function(self, obj1, type)
         for id,obj2 in pairs(self.objects) do
-            if (obj1.id ~= id) then
-                if (
-                    obj1.x == obj2.x and
-                    obj1.y == obj2.y
-                ) then return true end
+            if obj1.id ~= id then
+                if obj1.x == obj2.x and obj1.y == obj2.y then
+                    return true
+                end
             end
         end
         return false
@@ -1024,7 +1023,7 @@ function in_bounds(a,b)
 end
 
 function round(x)
-    if ((x - flr(x)) >= 0.5) then
+    if (x - flr(x)) >= 0.5 then
         return ceil(x)
     else
         return flr(x)
@@ -1082,7 +1081,7 @@ end
 function debug()
     local current_item = item_map:get(char.action_cell_x, char.action_cell_y)
     local item_s = ''
-    if (current_item ~= nil) then
+    if current_item ~= nil then
         item_s = current_item.name
     end
 
@@ -1176,17 +1175,17 @@ function init_char()
             outline_sprite(self.spr,0,self.x,self.y,self.flip)
 
             -- stamina
-            if (self.stamina < self.max_stamina) then
+            if self.stamina < self.max_stamina then
                 local s_pct = (self.stamina / self.max_stamina) * 10
                 local s_col = 11
-                if (self.exhausted) then s_col = 8 end
+                if self.exhausted then s_col = 8 end
                 line(self.x - 1, self.y - 2, self.x + s_pct - 1, self.y - 2, s_col)
             end
 
             -- contextual action
-            if (self.contextual_action and game_state == 'move') then
+            if self.contextual_action and game_state == 'move' then
                 rectfill(self.x + 9, self.y + 9, self.x + 50, self.y + 15, 1)
-                if (self.pickup_text ~= nil) then
+                if self.pickup_text ~= nil then
                     print("\142: "..self.pickup_text, self.x + 10, self.y + 10, 7)
                 else
                     print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
@@ -1213,14 +1212,14 @@ function init_char()
 end
 
 function change_state(_char, next_state)
-    if (next_state ~= _char.state and _char.states[_char.state][next_state] ~= nil) then
+    if next_state ~= _char.state and _char.states[_char.state][next_state] ~= nil then
         _char.state = next_state
         _char.spri = 1
     end
 end
 
 function update_char(_char)
-    if (_char.pause) then
+    if _char.pause then
         return
     end
 
@@ -1231,24 +1230,24 @@ function update_char(_char)
     next_move = nil
 
     -- stamina recovery
-    if (t % 32 == 0 and _char.state ~= 'run' and _char.stamina < _char.max_stamina) then
+    if t % 32 == 0 and _char.state ~= 'run' and _char.stamina < _char.max_stamina then
         _char.stamina = min(_char.stamina + 1, _char.max_stamina)
-        if (_char.exhausted and _char.stamina > (_char.max_stamina / 2)) then
+        if _char.exhausted and _char.stamina > (_char.max_stamina / 2) then
             _char.exhausted = false
         end 
     end 
 
     -- get input for the given frame
-    if (btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3))) then
+    if btn(0) and not(btn(1)) and not(btn(2)) and not(btn(3)) then
         next_move = 0
         _char.last_direction = 0
-    elseif (btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3))) then
+    elseif btn(1) and not(btn(0)) and not(btn(2)) and not(btn(3)) then
         next_move = 0.5
         _char.last_direction = 0.5
-    elseif (btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3))) then
+    elseif btn(2) and not(btn(1)) and not(btn(0)) and not(btn(3)) then
         next_move = 0.75
         _char.last_direction = 0.75
-    elseif (btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0))) then
+    elseif btn(3) and not(btn(1)) and not(btn(2)) and not(btn(0)) then
         next_move = 0.25
         _char.last_direction = 0.25
     end
@@ -1256,21 +1255,21 @@ function update_char(_char)
     next_state = _char.state
 
     -- if we're moving, we shouldn't change direction until we've landed squarely on a cell
-    if (_char.is_moving) then
+    if _char.is_moving then
         
         -- move to cell
         _char.x -= cos(_char.move_direction) * _char.runspeed
         _char.y -= sin(_char.move_direction) * _char.runspeed
 
-        if (_char.state == 'run') then
-            if (t % 8 == 0) then
+        if _char.state == 'run' then
+            if t % 8 == 0 then
                 add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
                 _char.stamina -= 2
                 sfx(47)
             end
 
 
-            if (_char.stamina <= 0) then
+            if _char.stamina <= 0 then
                 _char.runspeed = 1
                 _char.exhausted = true
                 _char.stamina = 0
@@ -1279,7 +1278,7 @@ function update_char(_char)
         end
 
         -- landed on a cell
-        if ((_char.x % 8 <= 0.2 or _char.x % 8 >= 7.8) and (_char.y % 8 <= 0.2 or _char.y % 8 >= 7.8)) then
+        if (_char.x % 8 <= 0.2 or _char.x % 8 >= 7.8) and (_char.y % 8 <= 0.2 or _char.y % 8 >= 7.8) then
             _char.x = round(_char.x)
             _char.y = round(_char.y)
             _char.is_moving = false
@@ -1292,7 +1291,7 @@ function update_char(_char)
 
             -- check cell for exits
             local tile_key = _char.cell_x .. "-" .. _char.cell_y
-            if (level.exits[tile_key] ~= nil) then
+            if level.exits[tile_key] ~= nil then
                 local lv = levels.list[level.exits[tile_key]]
                 transition_level(lv)
             end
@@ -1313,27 +1312,27 @@ function update_char(_char)
 
     -- talk / npcs
     local npc_target = npc_manager._[action_key]
-    if (npc_target) then
-        if (npc_target.hostile) then
+    if npc_target then
+        if npc_target.hostile then
             _char.contextual_action = 'fight'
-        elseif (npc_target.script ~= nil) then
+        elseif npc_target.script ~= nil then
             _char.contextual_action = 'talk'
         end
     end
 
     -- pickup items
     local cell_item = item_map:get(_char.cell_x, _char.cell_y)
-    if (cell_item ~= nil) then
+    if cell_item ~= nil then
         _char.contextual_action = 'pickup'
         _char.pickup_text = cell_item.name
     end
 
     -- action
-    if (btnp(5)) then
+    if btnp(5) then
         -- check the action cell to see if we should do something different
 
 
-        if (_char.contextual_action == 'check') then
+        if _char.contextual_action == 'check' then
             new_game_state = 'talk'
             dialog_manager.current_npc = {
                 script=object_target.action['check']
@@ -1343,23 +1342,23 @@ function update_char(_char)
         end
 
         -- item pickup
-        if (_char.contextual_action == 'pickup') then
+        if _char.contextual_action == 'pickup' then
             local did_work = inventory:add(cell_item)
-            if (did_work) then
+            if did_work then
                 item_map:delete(_char.cell_x, _char.cell_y)
             end
 
             return
         end
 
-        if (_char.contextual_action == 'talk') then
+        if _char.contextual_action == 'talk' then
             new_game_state = 'talk'
             dialog_manager.current_npc = npc_target
             dialog_manager:load()
             return
         end
 
-        if (_char.contextual_action == 'fight') then
+        if _char.contextual_action == 'fight' then
             new_game_state = 'battle'
             battle_manager:load(npc_target)
             return
@@ -1370,20 +1369,20 @@ function update_char(_char)
     end
 
     -- if I'm on a cell and there's an input, read the next direction and get ready to move next frame
-    if (_char.is_moving == false) then
-        if (next_move ~= nil) then
+    if _char.is_moving == false then
+        if next_move ~= nil then
 
             -- change facing direction
             _char.facing = next_move
-            if (next_move == 0) then
+            if next_move == 0 then
                 _char.flip = true
                 _char.facing_back = false
-            elseif (next_move == 0.25) then
+            elseif next_move == 0.25 then
                 _char.facing_back = false
-            elseif (next_move == 0.5) then
+            elseif next_move == 0.5 then
                 _char.flip = false
                 _char.facing_back = false
-            elseif (next_move == 0.75) then
+            elseif next_move == 0.75 then
                 _char.facing_back = true
             end
 
@@ -1395,7 +1394,7 @@ function update_char(_char)
             _char.test_collider.x = _char.cell_x - cos(next_move)
             _char.test_collider.y = _char.cell_y - sin(next_move)
 
-            if (collision_manager:test_intersect(_char.test_collider, collision_manager.collider_types.solid)) then
+            if collision_manager:test_intersect(_char.test_collider, collision_manager.collider_types.solid) then
                 return
             end
 
@@ -1406,8 +1405,8 @@ function update_char(_char)
             _char.move_direction = next_move
             _char.runspeed = 1
 
-            if (btn(4)) then
-                if (_char.stamina > 0 and _char.exhausted == false) then
+            if btn(4) then
+                if _char.stamina > 0 and _char.exhausted == false then
                     _char.runspeed = 2
                     next_state = 'run'
                 end
@@ -1427,10 +1426,10 @@ function update_char(_char)
 
     -- animation, and update sprite
     current_anim = _char.state
-    if (_char.facing_back == true) then
+    if _char.facing_back == true then
         current_anim = _char.state .. '_back'
     end
-    if (t % 4 == 0) then
+    if t % 4 == 0 then
         _char.spri = ((_char.spri + 1) % #_char.animations[current_anim]) + 1
     end
 
@@ -1496,7 +1495,7 @@ battle_manager = {
         self.enemy_cd = max(0, self.enemy_cd - 1)
         self.action_cd = max(0, self.action_cd -1)
         for move in all(self.moves) do
-            if (move.current_cd > 0) then
+            if move.current_cd > 0 then
                 move.current_cd -= 1
             end
         end
@@ -1529,7 +1528,7 @@ battle_manager = {
 
         if self.turn == 0 and not(self.battle_won) then
             -- enemy action
-            if (self.enemy_cd == 0) then
+            if self.enemy_cd == 0 then
                 self:damage_player(1)
                 self.enemy_cd=60
                 self.animation_timer=10
@@ -1540,7 +1539,7 @@ battle_manager = {
             -- player action
             if btnp(5) then
                 local move = self.moves[self.selection]
-                if (move.current_cd == 0) then
+                if move.current_cd == 0 then
                     self.action_cd = 10
                     move.current_cd = move.cd
                     move.use(self.enemy)
@@ -1599,7 +1598,7 @@ battle_manager = {
 
         for i,move in ipairs(self.moves) do
             local move_color = 7
-            if (move.current_cd ~= 0) then
+            if move.current_cd ~= 0 then
                 move_color = 6
 
                 -- 86
@@ -1612,15 +1611,15 @@ battle_manager = {
             print(move.name, cam.x + 48, cam.y + 76 + (i*6), move_color)
         end
 
-        if (self.action_cd == 0) then
+        if self.action_cd == 0 then
             print('>', cam.x + 42, cam.y + 76 + (self.selection * 6), 7)
         end
 
-        if (self.enemy_dmg_timer > 0) then
+        if self.enemy_dmg_timer > 0 then
             local pct = 1 - (self.enemy_dmg_timer / 15)
             outline(self.enemy_dmg, self.enemy.x + 2, self.enemy.y - 4 - (4 * pct), 7, 8)
         end
-        if (self.player_dmg_timer > 0) then
+        if self.player_dmg_timer > 0 then
             local pct = 1 - (self.player_dmg_timer / 15)
             outline(self.player_dmg, char.x + 2, char.y - 4 - (4 * pct), 7, 8)
         end

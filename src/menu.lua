@@ -41,40 +41,40 @@ menu = {
 
 
         -- todo: refactor into input fn
-        if (btnp(0)) then
+        if btnp(0) then
             self.cursor.x = max(self.cursor.x - 1, 1)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 1, 0, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 0.5, 0, 4, 1, 0, 7)
         end
 
-        if (btnp(1)) then
+        if btnp(1) then
             self.cursor.x = min(self.cursor.x + 1, inventory.cols)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -1, 0, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -0.5, 0, 4, 1, 0, 7)
         end
 
-        if (btnp(2)) then
+        if btnp(2) then
             self.cursor.y = max(self.cursor.y - 1, 1)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 1, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 0.5, 4, 1, 0, 7)
         end
 
-        if (btnp(3)) then
+        if btnp(3) then
             self.cursor.y = min(self.cursor.y + 1, inventory.rows)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -1, 6, 2, 0, 7)
             add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -0.5, 4, 1, 0, 7)
         end 
 
 
-        if (btnp(5)) then
+        if btnp(5) then
             -- drop item
-            if (self.selected_item) then
+            if self.selected_item then
                 item_map:set(char.cell_x, char.cell_y, inventory.items[self.cursor.x][self.cursor.y])
                 inventory.items[self.cursor.x][self.cursor.y] = nil
             end
         end
 
-        if (btnp(4)) then
+        if btnp(4) then
             new_game_state = 'move'
         end
 
@@ -104,7 +104,7 @@ menu = {
         for i=1,inventory.rows do
             for j=1,inventory.cols do
                 local item = inventory.items[j][i]
-                if (item ~= nil) then
+                if item then
                     spr(item.spr, cam.x + self.positions.inventory.grid.left + ((j-1) * 8), cam.y + self.positions.inventory.grid.top + ((i-1) * 8))
                 end
             end
@@ -130,7 +130,7 @@ menu = {
             7
         )
 
-        if (self.selected_item ~= nil) then
+        if self.selected_item ~= nil then
             print_centered(self.selected_item.name, self.positions.bottom_bar.left, self.positions.bottom_bar.right, self.positions.bottom_bar.top + 2, 7)
         end
 
@@ -138,7 +138,7 @@ menu = {
 }
 
 function draw_menu_rect(x0, y0, x1, y1, color, transparent)
-    if (not(transparent)) then
+    if not(transparent) then
         rectfill(cam.x + x0, cam.y + y0, cam.x + x1, cam.y + y1, 0)
     end
     line(cam.x + x0 + 1, cam.y + y0, cam.x + x1 - 1, cam.y + y0, color)

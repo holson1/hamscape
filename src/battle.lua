@@ -56,7 +56,7 @@ battle_manager = {
         self.enemy_cd = max(0, self.enemy_cd - 1)
         self.action_cd = max(0, self.action_cd -1)
         for move in all(self.moves) do
-            if (move.current_cd > 0) then
+            if move.current_cd > 0 then
                 move.current_cd -= 1
             end
         end
@@ -89,7 +89,7 @@ battle_manager = {
 
         if self.turn == 0 and not(self.battle_won) then
             -- enemy action
-            if (self.enemy_cd == 0) then
+            if self.enemy_cd == 0 then
                 self:damage_player(1)
                 self.enemy_cd=60
                 self.animation_timer=10
@@ -100,7 +100,7 @@ battle_manager = {
             -- player action
             if btnp(5) then
                 local move = self.moves[self.selection]
-                if (move.current_cd == 0) then
+                if move.current_cd == 0 then
                     self.action_cd = 10
                     move.current_cd = move.cd
                     move.use(self.enemy)
@@ -159,7 +159,7 @@ battle_manager = {
 
         for i,move in ipairs(self.moves) do
             local move_color = 7
-            if (move.current_cd ~= 0) then
+            if move.current_cd ~= 0 then
                 move_color = 6
 
                 -- 86
@@ -172,15 +172,15 @@ battle_manager = {
             print(move.name, cam.x + 48, cam.y + 76 + (i*6), move_color)
         end
 
-        if (self.action_cd == 0) then
+        if self.action_cd == 0 then
             print('>', cam.x + 42, cam.y + 76 + (self.selection * 6), 7)
         end
 
-        if (self.enemy_dmg_timer > 0) then
+        if self.enemy_dmg_timer > 0 then
             local pct = 1 - (self.enemy_dmg_timer / 15)
             outline(self.enemy_dmg, self.enemy.x + 2, self.enemy.y - 4 - (4 * pct), 7, 8)
         end
-        if (self.player_dmg_timer > 0) then
+        if self.player_dmg_timer > 0 then
             local pct = 1 - (self.player_dmg_timer / 15)
             outline(self.player_dmg, char.x + 2, char.y - 4 - (4 * pct), 7, 8)
         end

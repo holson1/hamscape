@@ -25,7 +25,7 @@ object_manager = {
 
     delete=function(self,key)
         local target_obj = self._[key]
-        if (target_obj ~= nil) then
+        if target_obj ~= nil then
             collision_manager:delete_collider(target_obj.id)
         end
         self._[key] = nil
