@@ -10,6 +10,9 @@ items.log = {
     name = 'log'
 }
 
+-- potential token save:
+-- items.shed_key = "045,shed key"
+-- sprite,name,eatable,equip_slot,sfx
 items.shed_key = {
     spr = 045,
     name = 'shed key'

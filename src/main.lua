@@ -26,7 +26,6 @@ function _init()
     inventory.items[3][6] = items.crab
 
     menu:init()
-    map_manager:init()
 
     char=init_char()
     level:load()

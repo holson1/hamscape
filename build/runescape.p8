@@ -155,6 +155,9 @@ items.log = {
     name = 'log'
 }
 
+-- potential token save:
+-- items.shed_key = "045,shed key"
+-- sprite,name,eatable,equip_slot,sfx
 items.shed_key = {
     spr = 045,
     name = 'shed key'
@@ -219,7 +222,6 @@ function _init()
     inventory.items[3][6] = items.crab
 
     menu:init()
-    map_manager:init()
 
     char=init_char()
     level:load()
@@ -373,18 +375,6 @@ inventory = {
     drop = function(self, x, y)
     end,
     remove = function(self, x, y)
-    end
-}
--->8
---src/map.lua
--- map: responsible for loading the map and generating objects
-
-map_manager = {
-    init=function(self)
-    end,
-    load_chunk=function(self)
-    end,
-    unload_chunk=function(self)
     end
 }
 -->8
@@ -1012,14 +1002,6 @@ end
 --src/lib/util.lua
 function rndi(min,max)
     return flr(rnd(max - min)) + min
-end
-
-function coord_match(a,b)
-    return a[1] == b[1] and a[2] == b[2]
-end
-
-function in_bounds(a,b)
-    return a > 0 and a < MAP_SIZE + 1 and b > 0 and b < MAP_SIZE + 1
 end
 
 function round(x)
