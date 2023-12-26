@@ -30,14 +30,6 @@ function _init()
 
     char=init_char()
     level:load()
-    -- item_map:set(26, 29, items.crab)
-
-    -- npc_manager:add(npc_pig)
-    -- npc_manager:add(npc_wizard)
-    -- npc_manager:add(npc_cat)
-    -- npc_manager:add(enemy_gob)
-
-    --music(0, 3000)
 end
 
 function _update()
@@ -113,6 +105,7 @@ function _draw()
 
     item_map:draw()
     npc_manager:draw_all()
+    object_manager:draw_all()
     char:draw()
 
     -- foreground

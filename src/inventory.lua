@@ -1,5 +1,5 @@
 inventory = {
-    rows=5,
+    rows=4,
     cols=5,
     items = {
         {},
@@ -19,6 +19,17 @@ inventory = {
                 if (self.items[i][j] == nil) then
                    self.items[i][j] = item
                    return true 
+                end
+            end
+        end
+        return false
+    end,
+    has_item= function(self,name)
+        for i=1,self.rows do
+            for j=1,self.cols do
+                local item = self.items[i][j]
+                if item and item.name == name then
+                    return true
                 end
             end
         end

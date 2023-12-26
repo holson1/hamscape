@@ -57,6 +57,10 @@ npc_blueprint = {
                     self.move_direction = nil
                 end
             end
+        else
+            if (t % 16 == 0) then
+                self.flip = not(self.flip)
+            end
         end
     end
 }
@@ -110,7 +114,17 @@ npc_manager = {
     -- TODO: only draw the npcs that are on screen
     draw_all=function(self)
         for k,v in pairs(self._) do
-            spr(v.s,v.x,v.y,1,1,v.flip)
+            if v.s then
+                spr(v.s,v.x,v.y,1,1,v.flip)
+                if t % 16 > 8 then
+                    rectfill(v.x,v.y,v.x+7,v.y+3,0)
+                    spr(v.s,v.x,v.y+1,1,0.75,v.flip)
+                end
+                if v.hurt then
+                    color_spr(v.s,8,v.x,v.y,v.flip)
+                    v.hurt = false
+                end
+            end
         end
     end
 }
@@ -174,13 +188,46 @@ npc_cat = {
     end
 }
 
+npc_farmer = {
+    id='farmer',
+    cell_x=8,
+    cell_y=9,
+    s = 102,
+    wander=false,
+    script = function(self)
+        return {'now where could i have\nleft that shed key?'}
+    end
+}
+
 enemy_gob = {
     id='gob',
     cell_x=14,
     cell_y=30,
     s=080,
     hostile=true,
-    health=2
+    health=5
+}
+
+enemy_spawner = {
+    id='spawner',
+    cell_x=14,
+    cell_y=28,
+    count=0,
+    update=function(self)
+        if t == 1 and self.count < 3 then
+            -- TODO: make this better
+            local eid = rndi(1,99)
+            npc_manager:add({
+                id='gob'..eid,
+                cell_x=rndi(9,16),
+                cell_y=rndi(24,38),
+                s=080,
+                hostile=true,
+                health=5
+            })
+            self.count += 1
+        end
+    end
 }
 
 

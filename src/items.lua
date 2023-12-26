@@ -10,6 +10,10 @@ items.log = {
     name = 'log'
 }
 
+items.shed_key = {
+    spr = 045,
+    name = 'shed key'
+}
 
 item_map = {
     _={},

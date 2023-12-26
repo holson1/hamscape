@@ -23,3 +23,34 @@ function print_centered(s, x1, x2, y, col)
     local center_point = ceil((x2 - x1) / 2) + x1
     print(s, cam.x + (center_point - str_w), cam.y + y, col)
 end
+
+function outline(s,x,y,c,o) -- 34 tokens, 5.7 seconds
+    color(o)
+    ?'\-f'..s..'\^g\-h'..s..'\^g\|f'..s..'\^g\|h'..s,x,y
+    ?s,x,y,c
+end
+
+function outline_sprite(s,col_outline,x,y,flip)
+    -- reset palette to col_outline
+    for c=1,15 do
+      pal(c,col_outline)
+    end
+    -- draw outline
+    spr(s,x+1,y,1,1,flip)
+    spr(s,x-1,y,1,1,flip)
+    spr(s,x,y+1,1,1,flip)
+    spr(s,x,y-1,1,1,flip)
+  
+    -- reset palette
+    pal()
+    -- draw final sprite
+    spr(s,x,y,1,1,flip)  
+end
+
+function color_spr(s,col,x,y,flip)
+    for c=1,15 do
+      pal(c,col)
+    end
+    spr(s,x,y,1,1,flip)  
+    pal()
+end

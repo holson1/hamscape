@@ -60,8 +60,11 @@ function init_char()
         end,
 
         draw=function(self)
-            rectfill(self.x, self.y, self.x+7, self.y+7, 0)
-            spr(self.spr,self.x,self.y,1,1,self.flip)
+            if self.state == 'run' then
+                -- trails
+                color_spr(self.spr,1,self.x+cos(self.last_direction)*4,self.y+sin(self.last_direction)*4,self.flip)
+            end
+            outline_sprite(self.spr,0,self.x,self.y,self.flip)
 
             -- stamina
             if (self.stamina < self.max_stamina) then
@@ -74,7 +77,11 @@ function init_char()
             -- contextual action
             if (self.contextual_action and game_state == 'move') then
                 rectfill(self.x + 9, self.y + 9, self.x + 50, self.y + 15, 1)
-                print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
+                if (self.pickup_text ~= nil) then
+                    print("\142: "..self.pickup_text, self.x + 10, self.y + 10, 7)
+                else
+                    print("\142: "..self.contextual_action, self.x + 10, self.y + 10, 7)
+                end
             end
 
             -- debug collision
@@ -150,7 +157,9 @@ function update_char(_char)
             if (t % 8 == 0) then
                 add_new_dust(_char.x + 4, _char.y + 7, 0, 0, 6, 2, 0, 7)
                 _char.stamina -= 2
+                sfx(47)
             end
+
 
             if (_char.stamina <= 0) then
                 _char.runspeed = 1
@@ -182,7 +191,16 @@ function update_char(_char)
     end
 
     _char.contextual_action = nil
+    _char.pickup_text = nil
     local action_key = (_char.action_cell_x) .. '-' .. (_char.action_cell_y)
+
+    -- other objects (locks, trees, etc)
+    local object_target = object_manager._[action_key]
+    if object_target and object_target.action then
+        if object_target.action['check'] then
+            _char.contextual_action = 'check'
+        end
+    end
 
     -- talk / npcs
     local npc_target = npc_manager._[action_key]
@@ -198,11 +216,22 @@ function update_char(_char)
     local cell_item = item_map:get(_char.cell_x, _char.cell_y)
     if (cell_item ~= nil) then
         _char.contextual_action = 'pickup'
+        _char.pickup_text = cell_item.name
     end
 
     -- action
     if (btnp(5)) then
         -- check the action cell to see if we should do something different
+
+
+        if (_char.contextual_action == 'check') then
+            new_game_state = 'talk'
+            dialog_manager.current_npc = {
+                script=object_target.action['check']
+            }
+            dialog_manager:load()
+            return
+        end
 
         -- item pickup
         if (_char.contextual_action == 'pickup') then
