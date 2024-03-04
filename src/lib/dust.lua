@@ -1,3 +1,4 @@
+-- TODO: refactor this, rn it can use up to 18 tokens per call
 function add_new_dust(_x,_y,_dx,_dy,_l,_s,_g,_f)
     add(dust, {
     fade=_f,x=_x,y=_y,dx=_dx,dy=_dy,life=_l,orig_life=_l,rad=_s,col=1,grav=_g,draw=function(self)

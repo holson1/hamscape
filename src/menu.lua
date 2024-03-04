@@ -43,26 +43,18 @@ menu = {
         -- todo: refactor into input fn
         if btnp(0) then
             self.cursor.x = max(self.cursor.x - 1, 1)
-            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 1, 0, 6, 2, 0, 7)
-            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, 0.5, 0, 4, 1, 0, 7)
         end
 
         if btnp(1) then
             self.cursor.x = min(self.cursor.x + 1, inventory.cols)
-            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -1, 0, 6, 2, 0, 7)
-            add_new_dust(self.cursor.draw_x + 1, self.cursor.draw_y + 4, -0.5, 0, 4, 1, 0, 7)
         end
 
         if btnp(2) then
             self.cursor.y = max(self.cursor.y - 1, 1)
-            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 1, 6, 2, 0, 7)
-            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, 0.5, 4, 1, 0, 7)
         end
 
         if btnp(3) then
             self.cursor.y = min(self.cursor.y + 1, inventory.rows)
-            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -1, 6, 2, 0, 7)
-            add_new_dust(self.cursor.draw_x + 4, self.cursor.draw_y + 1, 0, -0.5, 4, 1, 0, 7)
         end 
 
 

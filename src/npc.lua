@@ -205,7 +205,12 @@ enemy_gob = {
     cell_y=30,
     s=080,
     hostile=true,
-    health=5
+    hp=5,
+    attack=2,
+    speed=1,
+    defense=1,
+    accuracy=0.75,
+    evasion=0.1
 }
 
 enemy_spawner = {
@@ -217,14 +222,14 @@ enemy_spawner = {
         if t == 1 and self.count < 3 then
             -- TODO: make this better
             local eid = rndi(1,99)
-            npc_manager:add({
-                id='gob'..eid,
-                cell_x=rndi(9,16),
-                cell_y=rndi(24,38),
-                s=080,
-                hostile=true,
-                health=5
-            })
+            local gob_copy = {}
+            for k,v in pairs(enemy_gob) do
+                gob_copy[k]=v
+            end
+            gob_copy.id = 'gob'..eid
+            gob_copy.cell_x=rndi(9,16)
+            gob_copy.cell_y=rndi(24,38)
+            npc_manager:add(gob_copy)
             self.count += 1
         end
     end

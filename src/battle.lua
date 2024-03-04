@@ -16,9 +16,8 @@ battle_manager = {
             cd=40,
             current_cd=0,
             use=function()
-                sfx(42)
                 battle_manager.animation_timer=10
-                battle_manager:damage_enemy(1)
+                battle_manager:attack_enemy(1)
             end
         },
         {
@@ -27,7 +26,7 @@ battle_manager = {
             current_cd=0,
             use=function()
                 sfx(40)
-                battle_manager:damage_enemy(2)
+                battle_manager:attack_enemy(2)
             end
         },
         {
@@ -69,9 +68,9 @@ battle_manager = {
         end
 
         -- health check step
-        if self.enemy.health <= 0 and not(self.battle_won) then
+        if self.enemy.hp <= 0 and not(self.battle_won) then
             sfx(44)
-            -- TODO: genericize / reduce token usage
+            -- TODO: genericize / reduce token usage, this is almost 200 tokens right here!!
             add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(3), 25, 4, 0.2, 7)
             add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(3), 25, 3, 0.2, 7)
             add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(4), 25, 2, 0.2, 7)
@@ -90,10 +89,9 @@ battle_manager = {
         if self.turn == 0 and not(self.battle_won) then
             -- enemy action
             if self.enemy_cd == 0 then
-                self:damage_player(1)
-                self.enemy_cd=60
+                self:attack_player()
+                self.enemy_cd=60+rndi(1,20)
                 self.animation_timer=10
-                sfx(41)
                 self.turn = 2
             end
 
@@ -115,6 +113,11 @@ battle_manager = {
                         char.x -= (char.x - self.enemy.x) / 2
                         char.y -= (char.y - self.enemy.y) / 2
                     end
+                elseif self.turn == 2 then
+                    -- if (abs(self.enemy.x - char.x) > 2 or abs(self.enemy.y - char.y) > 2) then
+                    --     self.enemy.x -= (self.enemy.x - char.x) / 4
+                    --     self.enemy.y -= (self.enemy.y - char.y) / 4
+                    -- end
                 end
             else
                 self.turn = 0
@@ -122,6 +125,13 @@ battle_manager = {
                 char.y = (char.cell_y * 8)
 
                 if self.battle_won and self.enemy_dmg_timer == 0 then
+                    -- temp win battle + xp TODO move this
+                    stats.attack += 1
+                    stats.accuracy += 0.05
+                    stats.evasion += 0.05
+                    stats.defense += 0.2
+                    
+                    sfx(45)
                     new_game_state = 'move'
                     self.enemy = nil
                     return
@@ -130,24 +140,48 @@ battle_manager = {
         end
     end,
 
-    damage_enemy = function(self, dmg)
-        self.enemy.health -= dmg
-        self.enemy_dmg = dmg
+    attack_enemy = function(self, raw_dmg)
+        local did_hit = rnd(1) < (stats.accuracy - self.enemy.evasion)
+        if did_hit then
+            local dmg = round(raw_dmg + (stats.attack / 5) + rnd(0.5) - self.enemy.defense)
+            if dmg > 0 then
+                sfx(42)
+                self.enemy.hp -= dmg
+                self.enemy_dmg = dmg
+                self.enemy_dmg_timer = 20
+                add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(1), 15, 2, 0.1, 8)
+                add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(1), 15, 3, 0.1, 8)
+                self.enemy.hurt = true
+                return
+            end
+        end
+        sfx(50)
+        self.enemy_dmg = 0
         self.enemy_dmg_timer = 20
-        add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(1), 15, 2, 0.1, 8)
-        add_new_dust(self.enemy.x + 4, self.enemy.y + 4, rnd(2) - 1, -rnd(1), 15, 3, 0.1, 8)
-        self.enemy.hurt = true
     end,
 
-    damage_player = function(self, dmg)
-        char.health -= dmg
-        self.player_dmg = dmg
+    attack_player = function(self)
+        local did_hit = rnd(1) < (self.enemy.accuracy - stats.evasion)
+        if did_hit then
+            local dmg = flr(self.enemy.attack - stats.defense)
+            if dmg > 0 then
+                sfx(41)
+                stats.hp -= dmg
+                self.player_dmg = dmg
+                self.player_dmg_timer = 20
+                add_new_dust(char.x + 4, char.y + 4, rnd(2) - 1, -rnd(1), 15, 2, 0.1, 8)
+                add_new_dust(char.x + 4, char.y + 4, rnd(2) - 1, -rnd(1), 15, 3, 0.1, 8)
+                return
+            end
+        end
+        sfx(50)
+        self.player_dmg = 0
         self.player_dmg_timer = 20
     end,
 
     draw = function(self)
-        print('health: ' .. char.health, cam.x, cam.y, 8)
-        print('enemy: ' .. self.enemy.health, cam.x, cam.y + 8, 8)
+        print('health: ' .. stats.hp, cam.x, cam.y, 8)
+        print('enemy: ' .. self.enemy.hp, cam.x, cam.y + 8, 8)
 
         draw_menu_rect(
             40,
@@ -178,11 +212,13 @@ battle_manager = {
 
         if self.enemy_dmg_timer > 0 then
             local pct = 1 - (self.enemy_dmg_timer / 15)
-            outline(self.enemy_dmg, self.enemy.x + 2, self.enemy.y - 4 - (4 * pct), 7, 8)
+            local number_color = self.enemy_dmg > 0 and 8 or 1
+            outline(self.enemy_dmg, self.enemy.x + 2, self.enemy.y - 4 - (4 * pct), 7, number_color)
         end
         if self.player_dmg_timer > 0 then
             local pct = 1 - (self.player_dmg_timer / 15)
-            outline(self.player_dmg, char.x + 2, char.y - 4 - (4 * pct), 7, 8)
+            local number_color = self.player_dmg > 0 and 8 or 1
+            outline(self.player_dmg, char.x + 2, char.y - 4 - (4 * pct), 7, number_color)
         end
     end
 }
