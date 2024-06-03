@@ -48,6 +48,31 @@ levels.overworld = {
             }
         })
 
+        object_manager:add(22,28,018,{
+            hp=3,
+            action={
+                ['chop']=function(self)
+                    if char.exhausted then
+                        sfx(50)
+                        return
+                    end
+
+
+                    char.stamina -= 4
+
+                    if self.hp > 0 then
+                        sfx(47)
+                        add_new_dust((self.x * 8) + 4, (self.y * 8) + 4, rnd(2) - 1, -rnd(1), 15, 2, 0.1, 7)
+                        self.hp -= 1
+                    else
+                        sfx(42)
+                        object_manager:delete("22-28")
+                        item_map:set(22, 28, items.log)
+                    end
+                end
+            }
+        })
+
         --music(0, 3000)
     end,
     update=function(self)
@@ -1301,6 +1326,8 @@ function update_char(_char)
     if object_target and object_target.action then
         if object_target.action['check'] then
             _char.contextual_action = 'check'
+        elseif object_target.action['chop'] then
+            _char.contextual_action = 'chop'
         end
     end
 
@@ -1342,6 +1369,11 @@ function update_char(_char)
                 item_map:delete(_char.cell_x, _char.cell_y)
             end
 
+            return
+        end
+
+        if _char.contextual_action == 'chop' then
+            object_target.action['chop'](object_target)
             return
         end
 

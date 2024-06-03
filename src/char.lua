@@ -199,6 +199,8 @@ function update_char(_char)
     if object_target and object_target.action then
         if object_target.action['check'] then
             _char.contextual_action = 'check'
+        elseif object_target.action['chop'] then
+            _char.contextual_action = 'chop'
         end
     end
 
@@ -240,6 +242,11 @@ function update_char(_char)
                 item_map:delete(_char.cell_x, _char.cell_y)
             end
 
+            return
+        end
+
+        if _char.contextual_action == 'chop' then
+            object_target.action['chop'](object_target)
             return
         end
 
