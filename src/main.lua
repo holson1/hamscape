@@ -41,6 +41,7 @@ function _update()
 
     if game_state == 'move' then
         char:update()
+        object_manager:update_all()
         npc_manager:update_all()
     end
 
