@@ -44,32 +44,6 @@ levels.overworld = {
             }
         })
 
-        -- tree
-        -- object_manager:add(22,28,018,{
-        --     hp=3,
-        --     action={
-        --         ['chop']=function(self)
-        --             if char.exhausted then
-        --                 sfx(50)
-        --                 return
-        --             end
-
-
-        --             char.stamina -= 4
-
-        --             if self.hp > 0 then
-        --                 sfx(47)
-        --                 add_new_dust((self.x * 8) + 4, (self.y * 8) + 4, rnd(2) - 1, -rnd(1), 15, 2, 0.1, 7)
-        --                 self.hp -= 1
-        --             else
-        --                 sfx(42)
-        --                 object_manager:delete("22-28")
-        --                 item_map:set(22, 28, items.log)
-        --             end
-        --         end
-        --     }
-        -- })
-
         object_manager:add2(22,28,objects.tree)
 
 

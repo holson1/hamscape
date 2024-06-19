@@ -48,32 +48,6 @@ levels.overworld = {
             }
         })
 
-        -- tree
-        -- object_manager:add(22,28,018,{
-        --     hp=3,
-        --     action={
-        --         ['chop']=function(self)
-        --             if char.exhausted then
-        --                 sfx(50)
-        --                 return
-        --             end
-
-
-        --             char.stamina -= 4
-
-        --             if self.hp > 0 then
-        --                 sfx(47)
-        --                 add_new_dust((self.x * 8) + 4, (self.y * 8) + 4, rnd(2) - 1, -rnd(1), 15, 2, 0.1, 7)
-        --                 self.hp -= 1
-        --             else
-        --                 sfx(42)
-        --                 object_manager:delete("22-28")
-        --                 item_map:set(22, 28, items.log)
-        --             end
-        --         end
-        --     }
-        -- })
-
         object_manager:add2(22,28,objects.tree)
 
 
@@ -510,7 +484,8 @@ objects.tree = {
         local yc = self.y * 8
 
         if self.timer > 0 then
-            spr(045,xc,yc,1,1)
+            spr(046,xc,yc,1,1)
+
         else
             spr(018,xc,yc,1,1)
             rectfill(xc,yc-7,xc+6,yc-2,0)
@@ -535,7 +510,9 @@ objects.tree = {
                 sfx(42)
                 self.timer = 200
                 self.action=nil
-                --item_map:set(22, 28, items.log)
+                inventory:add(items.log)
+
+                xp:add('woodcutting', 25)
             end
         end
     }
@@ -545,6 +522,7 @@ objects.tree = {
 stats = {
     xp=0,
     hp=10,
+    combat=1,
     attack=1,
     accuracy=0.75,
     defense=1,
@@ -554,6 +532,35 @@ stats = {
     fishing=1,
     mining=1
 }
+
+xp = {
+    woodcutting=0,
+    fishing=0,
+    mining=0,
+    combat=0,
+
+    icons = {
+        woodcutting = 025,
+        fishing = 024,
+        mining = 026,
+        combat = 023
+    },
+
+    add=function(self, skill, value)
+        self[skill] += value
+        
+        -- check level up
+        local current_level = stats[skill]
+        local next_threshold = 2^(current_level - 1) * 100
+
+        if self[skill] > next_threshold then
+            sfx(46)
+            stats[skill] += 1
+        end
+    end,
+}
+
+
 -->8
 --src/menu.lua
 menu = {
@@ -635,6 +642,19 @@ menu = {
         -- status
         draw_menu_rect(0,0,63,63,7)
         print('- status - ', cam.x + 12, cam.y + 2, 7)
+
+        -- icons!
+        circfill(cam.x + 20, cam.y + 20, 4, 3)
+        outline_sprite(025, 0, cam.x + 16, cam.y + 16)
+
+        circfill(cam.x + 19, cam.y + 39, 4, 12)
+        outline_sprite(024, 0, cam.x + 16, cam.y + 36)
+
+        circfill(cam.x + 40, cam.y + 39, 4, 5)
+        outline_sprite(026, 0, cam.x + 36, cam.y + 36)
+
+        circfill(cam.x + 39, cam.y + 20, 4, 8)
+        outline_sprite(023, 0, cam.x + 36, cam.y + 16)
 
 
         local inv_right = self.positions.inventory.grid.left + (inventory.cols * 8) + self.positions.inventory.padding.right
@@ -1339,6 +1359,11 @@ function update_char(_char)
     next_move = nil
 
     -- stamina recovery
+    if _char.stamina < 0 then
+        _char.exhausted = true
+        _char.stamina = 0
+    end
+
     if t % 32 == 0 and _char.state ~= 'run' and _char.stamina < _char.max_stamina then
         _char.stamina = min(_char.stamina + 1, _char.max_stamina)
         if _char.exhausted and _char.stamina > (_char.max_stamina / 2) then
@@ -1799,10 +1824,10 @@ __gfx__
 00000b33000099300b3b33b000000a0000000af00000000000004f4400bb00300b00300000000300000000000000000004a000f00000700a0000000000000000
 0000b33000099993b3b333b3000a0fa0000a0aaa00000000000444f40b00b030000000b0000088800000000008000080004a00a00000a0090000000000000000
 000b330000999990b3b333b300aa0f00000aa00000000000004f44400b00b00003000000000088800444444000088000000a000000009a900000000000000000
-00b3300000999900b3b333b300a04f000a04aa0000fffff00444f4000b0000b0000030000008880049399994008888000a000400000a00000000000000000000
-0bbb000009999000b3b333b304f04f040a4000000fffffff4f4440000b030b0000b000000088800044999344008888000a000a0000a000000000000000000000
-7bb00000999900000b3b33b004f04f0404aa00000fffffff44f400000b030b0003000b000880000004444440000880000a0f00a00a9000000000000000000000
-770000009900000000bb3b0004f04f04400000000000000004400000000000000000000000000000004444000000000000000000a90900000000000000000000
+00b3300000999900b3b333b300a04f000a04aa0000fffff00444f4000b0000b0000030000008880049399994008888000a000400000a0000000ff00000000000
+0bbb000009999000b3b333b304f04f040a4000000fffffff4f4440000b030b0000b000000088800044999344008888000a000a0000a000000004400000000000
+7bb00000999900000b3b33b004f04f0404aa00000fffffff44f400000b030b0003000b000880000004444440000880000a0f00a00a9000000004400000000000
+770000009900000000bb3b0004f04f04400000000000000004400000000000000000000000000000004444000000000000000000a90900000004400000000000
 00000001111111111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000015151515155100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000111111111111110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

@@ -78,6 +78,19 @@ menu = {
         draw_menu_rect(0,0,63,63,7)
         print('- status - ', cam.x + 12, cam.y + 2, 7)
 
+        -- icons!
+        circfill(cam.x + 20, cam.y + 20, 4, 3)
+        outline_sprite(025, 0, cam.x + 16, cam.y + 16)
+
+        circfill(cam.x + 19, cam.y + 39, 4, 12)
+        outline_sprite(024, 0, cam.x + 16, cam.y + 36)
+
+        circfill(cam.x + 40, cam.y + 39, 4, 5)
+        outline_sprite(026, 0, cam.x + 36, cam.y + 36)
+
+        circfill(cam.x + 39, cam.y + 20, 4, 8)
+        outline_sprite(023, 0, cam.x + 36, cam.y + 16)
+
 
         local inv_right = self.positions.inventory.grid.left + (inventory.cols * 8) + self.positions.inventory.padding.right
 

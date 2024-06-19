@@ -122,6 +122,11 @@ function update_char(_char)
     next_move = nil
 
     -- stamina recovery
+    if _char.stamina < 0 then
+        _char.exhausted = true
+        _char.stamina = 0
+    end
+
     if t % 32 == 0 and _char.state ~= 'run' and _char.stamina < _char.max_stamina then
         _char.stamina = min(_char.stamina + 1, _char.max_stamina)
         if _char.exhausted and _char.stamina > (_char.max_stamina / 2) then

@@ -99,7 +99,8 @@ objects.tree = {
         local yc = self.y * 8
 
         if self.timer > 0 then
-            spr(045,xc,yc,1,1)
+            spr(046,xc,yc,1,1)
+
         else
             spr(018,xc,yc,1,1)
             rectfill(xc,yc-7,xc+6,yc-2,0)
@@ -124,7 +125,9 @@ objects.tree = {
                 sfx(42)
                 self.timer = 200
                 self.action=nil
-                --item_map:set(22, 28, items.log)
+                inventory:add(items.log)
+
+                xp:add('woodcutting', 25)
             end
         end
     }
